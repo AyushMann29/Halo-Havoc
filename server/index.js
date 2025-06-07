@@ -45,8 +45,8 @@ function createNewGameState() {
       x: 0,
       y: 0,
       radius: 50,
-      maxHealth: 500,
-      currentHealth: 500
+      maxHealth: 5000,
+      currentHealth: 5000
     },
     sharedCharge: 0,
     shield: null,
