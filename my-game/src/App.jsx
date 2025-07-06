@@ -3,6 +3,7 @@ import { socket } from './socket';
 import { sketch } from './sketch';
 import p5 from 'p5';
 import MainMenu from './MainMenu';
+import gameSong from './assets/game_song.mp3';
 
 export default function App() {
   const [selectedClass, setSelectedClass] = useState(null);
@@ -35,16 +36,27 @@ export default function App() {
 
   useEffect(() => {
     if (gameStarted && !p5Instance.current) {
-      p5Instance.current = new p5(sketch(socket, selectedClass, roomCode), sketchRef.current);
+      try {
+        p5Instance.current = new p5(sketch(socket, selectedClass, roomCode), sketchRef.current);
+      } catch (error) {
+        console.error('Error creating p5 instance:', error);
+        // Reset game state on error
+        setGameStarted(false);
+        setGameOverState(null);
+      }
     }
 
     return () => {
       if (p5Instance.current) {
-        p5Instance.current.remove();
+        try {
+          p5Instance.current.remove();
+        } catch (error) {
+          console.error('Error removing p5 instance:', error);
+        }
         p5Instance.current = null;
       }
     };
-  }, [gameStarted]);
+  }, [gameStarted, selectedClass, roomCode]);
 
   return (
     <>
@@ -53,6 +65,14 @@ export default function App() {
       ) : (
         <>
           <div ref={sketchRef} style={{ position: 'relative' }} />
+          {/* Game music audio, plays when game starts */}
+          <audio 
+            src={gameSong} 
+            autoPlay 
+            loop 
+            preload="auto"
+            style={{ display: 'none' }} 
+          />
           {gameOverState && (
             <div style={{
               position: 'absolute',

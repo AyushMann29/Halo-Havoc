@@ -1,30 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 const CLASSES = [
   {
-    name: 'Tank',
+    name: 'Tank (Easy)',
     description: 'Slow but very durable. Absorbs a lot of damage.',
     stats: 'HP: 10, Speed: Low, Damage: Low',
     skill: 'Invincibility - 3 charges',
     skillDescription: 'Become immune to all damage temporarily'
   },
   {
-    name: 'Assault',
+    name: 'Assault (Medium)',
     description: 'Balanced fighter. Good all-around.',
     stats: 'HP: 5, Speed: Medium, Damage: Medium',
     skill: 'Triple Shot - 4 charges',
     skillDescription: 'Fire three projectiles in a spread pattern'
   },
   {
-    name: 'Healer',
+    name: 'Healer (Hard)',
     description: 'Supports teammates with healing abilities.',
     stats: 'HP: 4, Speed: High, Heal ability',
     skill: 'Heal All - 5 charges',
     skillDescription: 'Restore health to all nearby teammates'
   },
   {
-    name: 'Sniper',
+    name: 'Sniper (Challenging)',
     description: 'Fast and deadly, but fragile.',
     stats: 'HP: 3, Speed: Very High, Damage: High',
     skill: 'Great Shot - 4 charges',
@@ -36,6 +36,10 @@ export default function MainMenu({ onReady }) {
   const [selectedClass, setSelectedClass] = useState(null);
   const [roomCode, setRoomCode] = useState('');
   const [joining, setJoining] = useState(false);
+
+  useEffect(() => {
+    document.title = '💫 Halo Havoc 🚀';
+  }, []);
 
   const handleReady = () => {
     if (selectedClass && roomCode.trim()) {
@@ -95,7 +99,28 @@ export default function MainMenu({ onReady }) {
           alignItems: 'center',
         }}
       >
-        <motion.h1 initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} style={{ fontSize: '3.2rem', marginBottom: '1.2rem', letterSpacing: '0.04em', color: '#00ffaa', textShadow: '0 2px 24px #00ff88' }}>
+        {/* Game Title Heading */}
+        <motion.h1
+          initial={{ opacity: 0, y: -60 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
+          style={{
+            fontSize: '3.6rem',
+            letterSpacing: '0.08em',
+            color: '#00ffaa',
+            textShadow: '0 0 32px #00ff88, 0 2px 24px #00ffaa',
+            fontWeight: 900,
+            fontFamily: 'Orbitron, sans-serif',
+            textAlign: 'center',
+            lineHeight: 1.1,
+          }}
+        >
+          💫 Halo Havoc 🚀
+        </motion.h1>
+        <motion.h1 initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} style={{ fontSize: '3.5rem', marginBottom: '0.2rem', marginTop: '10rem', letterSpacing: '0.04em', color: '#00ffaa', textShadow: '0 2px 24px #00ff88' }}>
+          Welcome to Halo Havoc
+        </motion.h1>
+        <motion.h1 initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} style={{ fontSize: '3rem', marginBottom: '1.2rem', letterSpacing: '0.04em', color: '#00ffaa', textShadow: '0 2px 24px #00ff88' }}>
           🚀 Choose Your Class
         </motion.h1>
 
