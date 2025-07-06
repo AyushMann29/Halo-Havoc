@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { Analytics } from "@vercel/analytics/next"
 
 const CLASSES = [
   {
@@ -36,48 +37,35 @@ export default function MainMenu({ onReady }) {
   const [selectedClass, setSelectedClass] = useState(null);
   const [roomCode, setRoomCode] = useState('');
   const [joining, setJoining] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(false);
+  const [showRotatePrompt, setShowRotatePrompt] = useState(false);
 
   useEffect(() => {
     document.title = '💫 Halo Havoc 🚀';
     
-    // Function to handle orientation change
-    const handleOrientationChange = () => {
-      const isLandscapeMode = window.innerWidth > window.innerHeight;
-      setIsLandscape(isLandscapeMode);
+    // Function to handle screen size changes
+    const handleScreenSizeChange = () => {
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isSmallScreen = window.innerWidth < 768;
+      const isPortrait = window.innerHeight > window.innerWidth;
       
-      // Try to lock orientation to landscape on mobile
-      if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
-        // Check if it's a mobile device
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        if (isMobile && !isLandscapeMode) {
-          window.screen.orientation.lock('landscape').catch(err => {
-            console.log('Orientation lock not supported or denied:', err);
-          });
-        }
+      // Show rotate prompt on mobile devices with small screens in portrait mode
+      if (isMobile && isSmallScreen && isPortrait) {
+        setShowRotatePrompt(true);
+      } else {
+        setShowRotatePrompt(false);
       }
     };
 
     // Initial check
-    handleOrientationChange();
+    handleScreenSizeChange();
 
     // Add event listeners
-    window.addEventListener('orientationchange', handleOrientationChange);
-    window.addEventListener('resize', handleOrientationChange);
-
-    // Try to lock to landscape on mobile devices
-    if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (isMobile) {
-        window.screen.orientation.lock('landscape').catch(err => {
-          console.log('Orientation lock not supported or denied:', err);
-        });
-      }
-    }
+    window.addEventListener('resize', handleScreenSizeChange);
+    window.addEventListener('orientationchange', handleScreenSizeChange);
 
     return () => {
-      window.removeEventListener('orientationchange', handleOrientationChange);
-      window.removeEventListener('resize', handleOrientationChange);
+      window.removeEventListener('resize', handleScreenSizeChange);
+      window.removeEventListener('orientationchange', handleScreenSizeChange);
     };
   }, []);
 
@@ -120,8 +108,8 @@ export default function MainMenu({ onReady }) {
           100% { background-position: 0% 50%; }
         }
         
-        /* Mobile landscape styles */
-        @media screen and (max-width: 768px) and (orientation: portrait) {
+        /* Mobile portrait styles - show rotate prompt */
+        @media screen and (max-width: 768px) and (min-height: 768px) {
           .rotate-prompt {
             display: flex !important;
           }
@@ -130,7 +118,8 @@ export default function MainMenu({ onReady }) {
           }
         }
         
-        @media screen and (max-width: 768px) and (orientation: landscape) {
+        /* Mobile landscape styles - hide rotate prompt */
+        @media screen and (max-width: 768px) and (max-height: 767px) {
           .rotate-prompt {
             display: none !important;
           }
@@ -139,8 +128,8 @@ export default function MainMenu({ onReady }) {
           }
         }
         
-        /* Landscape layout adjustments */
-        @media screen and (orientation: landscape) and (max-height: 600px) {
+        /* Small screen landscape layout adjustments */
+        @media screen and (max-width: 768px) and (max-height: 600px) {
           .main-container {
             padding: 1rem 2rem 1rem 2rem !important;
           }
@@ -184,22 +173,24 @@ export default function MainMenu({ onReady }) {
         }
       `}</style>
       {/* Rotation Prompt for Mobile Portrait */}
-      <motion.div
-        className="rotate-prompt"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          display: 'none',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          background: 'linear-gradient(120deg, #0f2027, #2c5364 60%, #00ff88 100%)',
-          zIndex: 1000,
-          padding: '2rem',
-        }}
-      >
+      {showRotatePrompt && (
+        <motion.div
+          className="rotate-prompt"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            background: 'linear-gradient(120deg, #0f2027, #2c5364 60%, #00ff88 100%)',
+            zIndex: 1000,
+            padding: '2rem',
+          }}
+        >
         <motion.div
           animate={{ rotate: [0, 90, 0] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
@@ -229,9 +220,11 @@ export default function MainMenu({ onReady }) {
         }}>
           Halo Havoc works best in landscape mode on mobile devices
         </p>
-      </motion.div>
+        </motion.div>
+      )}
 
-              <motion.div
+                    {!showRotatePrompt && (
+        <motion.div
           className="main-content main-container"
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
@@ -459,7 +452,8 @@ export default function MainMenu({ onReady }) {
         >
           {selectedClass ? `🎮 Enter Room ${roomCode || ''}` : 'Select class & room'}
         </motion.button>
-      </motion.div>
+        </motion.div>
+      )}
 
       {/* Footer */}
       <motion.footer
