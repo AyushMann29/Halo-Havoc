@@ -36,9 +36,49 @@ export default function MainMenu({ onReady }) {
   const [selectedClass, setSelectedClass] = useState(null);
   const [roomCode, setRoomCode] = useState('');
   const [joining, setJoining] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(false);
 
   useEffect(() => {
     document.title = '💫 Halo Havoc 🚀';
+    
+    // Function to handle orientation change
+    const handleOrientationChange = () => {
+      const isLandscapeMode = window.innerWidth > window.innerHeight;
+      setIsLandscape(isLandscapeMode);
+      
+      // Try to lock orientation to landscape on mobile
+      if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+        // Check if it's a mobile device
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile && !isLandscapeMode) {
+          window.screen.orientation.lock('landscape').catch(err => {
+            console.log('Orientation lock not supported or denied:', err);
+          });
+        }
+      }
+    };
+
+    // Initial check
+    handleOrientationChange();
+
+    // Add event listeners
+    window.addEventListener('orientationchange', handleOrientationChange);
+    window.addEventListener('resize', handleOrientationChange);
+
+    // Try to lock to landscape on mobile devices
+    if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      if (isMobile) {
+        window.screen.orientation.lock('landscape').catch(err => {
+          console.log('Orientation lock not supported or denied:', err);
+        });
+      }
+    }
+
+    return () => {
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      window.removeEventListener('resize', handleOrientationChange);
+    };
   }, []);
 
   const handleReady = () => {
@@ -79,28 +119,141 @@ export default function MainMenu({ onReady }) {
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
         }
+        
+        /* Mobile landscape styles */
+        @media screen and (max-width: 768px) and (orientation: portrait) {
+          .rotate-prompt {
+            display: flex !important;
+          }
+          .main-content {
+            display: none !important;
+          }
+        }
+        
+        @media screen and (max-width: 768px) and (orientation: landscape) {
+          .rotate-prompt {
+            display: none !important;
+          }
+          .main-content {
+            display: flex !important;
+          }
+        }
+        
+        /* Landscape layout adjustments */
+        @media screen and (orientation: landscape) and (max-height: 600px) {
+          .main-container {
+            padding: 1rem 2rem 1rem 2rem !important;
+          }
+          .game-title {
+            font-size: 2.5rem !important;
+            margin-bottom: 0.5rem !important;
+          }
+          .welcome-title {
+            font-size: 2.2rem !important;
+            margin-top: 2rem !important;
+            margin-bottom: 0.1rem !important;
+          }
+          .choose-title {
+            font-size: 1.8rem !important;
+            margin-bottom: 0.8rem !important;
+          }
+          .controls-section {
+            margin-bottom: 1.5rem !important;
+            padding: 0.8rem !important;
+          }
+          .classes-container {
+            gap: 1rem !important;
+            margin-bottom: 1.5rem !important;
+          }
+          .class-card {
+            padding: 1.2rem !important;
+            width: 200px !important;
+          }
+          .room-section {
+            margin-bottom: 1.5rem !important;
+          }
+          .ready-button {
+            margin-bottom: 1.5rem !important;
+            padding: 1rem 2.5rem !important;
+            font-size: 1.2rem !important;
+          }
+          .footer {
+            padding-top: 0.5rem !important;
+            padding-bottom: 0.8rem !important;
+          }
+        }
       `}</style>
+      {/* Rotation Prompt for Mobile Portrait */}
       <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7 }}
+        className="rotate-prompt"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         style={{
-          background: 'rgba(20, 30, 40, 0.85)',
-          boxShadow: '0 8px 40px 0 rgba(0,255,136,0.10)',
-          borderRadius: '24px',
-          padding: '2.5rem 2.5rem 1.5rem 2.5rem',
-          maxWidth: '900px',
-          width: '95vw',
-          margin: '2rem 0',
-          backdropFilter: 'blur(12px)',
-          border: '2px solid rgba(0,255,136,0.10)',
-          display: 'flex',
+          position: 'fixed',
+          inset: 0,
+          display: 'none',
           flexDirection: 'column',
+          justifyContent: 'center',
           alignItems: 'center',
+          background: 'linear-gradient(120deg, #0f2027, #2c5364 60%, #00ff88 100%)',
+          zIndex: 1000,
+          padding: '2rem',
         }}
       >
+        <motion.div
+          animate={{ rotate: [0, 90, 0] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            fontSize: '4rem',
+            marginBottom: '2rem',
+            color: '#00ffaa',
+          }}
+        >
+          📱
+        </motion.div>
+        <h1 style={{
+          fontSize: '2rem',
+          color: '#00ffaa',
+          textAlign: 'center',
+          marginBottom: '1rem',
+          textShadow: '0 0 20px #00ff88',
+        }}>
+          Please Rotate Your Device
+        </h1>
+        <p style={{
+          fontSize: '1.2rem',
+          color: '#ccc',
+          textAlign: 'center',
+          maxWidth: '300px',
+          lineHeight: 1.5,
+        }}>
+          Halo Havoc works best in landscape mode on mobile devices
+        </p>
+      </motion.div>
+
+              <motion.div
+          className="main-content main-container"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
+          style={{
+            background: 'rgba(20, 30, 40, 0.85)',
+            boxShadow: '0 8px 40px 0 rgba(0,255,136,0.10)',
+            borderRadius: '24px',
+            padding: '2.5rem 2.5rem 1.5rem 2.5rem',
+            maxWidth: '900px',
+            width: '95vw',
+            margin: '2rem 0',
+            backdropFilter: 'blur(12px)',
+            border: '2px solid rgba(0,255,136,0.10)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
         {/* Game Title Heading */}
         <motion.h1
+          className="game-title"
           initial={{ opacity: 0, y: -60 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7 }}
@@ -117,15 +270,16 @@ export default function MainMenu({ onReady }) {
         >
           💫 Halo Havoc 🚀
         </motion.h1>
-        <motion.h1 initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} style={{ fontSize: '3.5rem', marginBottom: '0.2rem', marginTop: '10rem', letterSpacing: '0.04em', color: '#00ffaa', textShadow: '0 2px 24px #00ff88' }}>
+        <motion.h1 className="welcome-title" initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} style={{ fontSize: '3.5rem', marginBottom: '0.2rem', marginTop: '10rem', letterSpacing: '0.04em', color: '#00ffaa', textShadow: '0 2px 24px #00ff88' }}>
           Welcome to Halo Havoc
         </motion.h1>
-        <motion.h1 initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} style={{ fontSize: '3rem', marginBottom: '1.2rem', letterSpacing: '0.04em', color: '#00ffaa', textShadow: '0 2px 24px #00ff88' }}>
+        <motion.h1 className="choose-title" initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} style={{ fontSize: '3rem', marginBottom: '1.2rem', letterSpacing: '0.04em', color: '#00ffaa', textShadow: '0 2px 24px #00ff88' }}>
           🚀 Choose Your Class
         </motion.h1>
 
         {/* Controls Instructions */}
         <motion.div 
+          className="controls-section"
           initial={{ opacity: 0, y: -20 }} 
           animate={{ opacity: 1, y: 0 }} 
           transition={{ delay: 0.3, duration: 0.6 }}
@@ -152,10 +306,11 @@ export default function MainMenu({ onReady }) {
           </div>
         </motion.div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '2.2rem' }}>
+        <div className="classes-container" style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '2.2rem' }}>
           {CLASSES.map((cls) => (
             <motion.div
               key={cls.name}
+              className="class-card"
               onClick={() => setSelectedClass(cls.name)}
               whileHover={{ scale: 1.08, boxShadow: '0 0 32px #00ff88' }}
               whileTap={{ scale: 0.97 }}
@@ -237,7 +392,7 @@ export default function MainMenu({ onReady }) {
         )}
 
         {/* Room code input and create button in a card */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} style={{ marginBottom: '2.2rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <motion.div className="room-section" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} style={{ marginBottom: '2.2rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
           <div style={{
             background: 'rgba(34,34,34,0.92)',
             border: '1.5px solid #00ffaa44',
@@ -283,6 +438,7 @@ export default function MainMenu({ onReady }) {
         </motion.div>
 
         <motion.button
+          className="ready-button"
           onClick={handleReady}
           disabled={!selectedClass || !roomCode}
           whileHover={selectedClass && roomCode ? { scale: 1.07, boxShadow: '0 0 32px #00ff88' } : {}}
@@ -307,6 +463,7 @@ export default function MainMenu({ onReady }) {
 
       {/* Footer */}
       <motion.footer
+        className="footer"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.8, duration: 0.6 }}
