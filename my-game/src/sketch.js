@@ -24,6 +24,8 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
 
   let lastShotTime = 0;
   let myAngle = 0;
+  let touchLeft = false;
+  let touchRight = false;
 
   const stars = Array.from({ length: 300 }, () => ({
     x: Math.random() * 5000 - 2500,
@@ -68,6 +70,12 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     p.canvas.tabIndex = -1;
     p.canvas.style.outline = 'none';
     p.canvas.addEventListener('click', () => p.canvas.focus());
+    
+    // Add touch/click controls
+    p.canvas.addEventListener('mousedown', handleTouch);
+    p.canvas.addEventListener('touchstart', handleTouch);
+    p.canvas.addEventListener('mouseup', handleTouchEnd);
+    p.canvas.addEventListener('touchend', handleTouchEnd);
   };
 
   p.draw = () => {
@@ -76,8 +84,8 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
 
     const me = players[myId];
 
-    if (p.keyIsDown(p.LEFT_ARROW)) myAngle -= ROTATION_SPEED;
-    if (p.keyIsDown(p.RIGHT_ARROW)) myAngle += ROTATION_SPEED;
+    if (p.keyIsDown(p.LEFT_ARROW) || touchLeft) myAngle -= ROTATION_SPEED;
+    if (p.keyIsDown(p.RIGHT_ARROW) || touchRight) myAngle += ROTATION_SPEED;
 
     const predictedX = ORBIT_RADIUS * Math.cos(myAngle);
     const predictedY = ORBIT_RADIUS * Math.sin(myAngle);
@@ -201,6 +209,29 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
       p.text(outcome === "victory" ? "VICTORY!" : "DEFEAT", p.width / 2 - p.width / 2 + predictedX, p.height / 2 - p.height / 2 + predictedY);
       p.pop();
     }
+  };
+
+  // Touch/click handling functions
+  const handleTouch = (event) => {
+    event.preventDefault();
+    const rect = p.canvas.getBoundingClientRect();
+    const x = event.clientX || (event.touches && event.touches[0].clientX) || 0;
+    const relativeX = x - rect.left;
+    const screenWidth = p.width;
+    
+    if (relativeX < screenWidth / 2) {
+      touchLeft = true;
+      touchRight = false;
+    } else {
+      touchRight = true;
+      touchLeft = false;
+    }
+  };
+
+  const handleTouchEnd = (event) => {
+    event.preventDefault();
+    touchLeft = false;
+    touchRight = false;
   };
 
   p.windowResized = () => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Analytics } from "@vercel/analytics/next"
+// import { Analytics } from "@vercel/analytics/next"
 
 const CLASSES = [
   {
@@ -92,12 +92,13 @@ export default function MainMenu({ onReady }) {
         minWidth: '100vw',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         alignItems: 'center',
         background: 'linear-gradient(120deg, #0f2027, #2c5364 60%, #00ff88 100%)',
         backgroundSize: '200% 200%',
         animation: 'bgMove 10s ease-in-out infinite',
         overflow: 'auto',
+        paddingTop: '2rem',
       }}
     >
       {/* Animated background gradient keyframes */}
@@ -132,6 +133,8 @@ export default function MainMenu({ onReady }) {
         @media screen and (max-width: 768px) and (max-height: 600px) {
           .main-container {
             padding: 1rem 2rem 1rem 2rem !important;
+            margin-top: 5rem !important;
+            margin-bottom: 2rem !important;
           }
           .game-title {
             font-size: 2.5rem !important;
@@ -171,57 +174,126 @@ export default function MainMenu({ onReady }) {
             padding-bottom: 0.8rem !important;
           }
         }
+        
+        /* Ensure proper scrolling on mobile landscape */
+        @media screen and (max-width: 768px) and (max-height: 600px) {
+          body {
+            overflow-y: auto !important;
+            height: auto !important;
+          }
+          .main-content {
+            position: relative !important;
+            top: auto !important;
+          }
+        }
+        
+        /* Hide scroll button on very small screens */
+        @media screen and (max-width: 480px) {
+          .scroll-to-start-btn {
+            display: none !important;
+          }
+        }
+        
+        /* Adjust scroll button position on mobile landscape */
+        @media screen and (max-width: 768px) and (max-height: 600px) {
+          .scroll-to-start-btn {
+            top: 1rem !important;
+            right: 1rem !important;
+            padding: 0.6rem 1rem !important;
+            font-size: 0.9rem !important;
+          }
+        }
       `}</style>
-      {/* Rotation Prompt for Mobile Portrait */}
-      {showRotatePrompt && (
-        <motion.div
-          className="rotate-prompt"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            background: 'linear-gradient(120deg, #0f2027, #2c5364 60%, #00ff88 100%)',
-            zIndex: 1000,
-            padding: '2rem',
-          }}
-        >
-        <motion.div
-          animate={{ rotate: [0, 90, 0] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          style={{
-            fontSize: '4rem',
-            marginBottom: '2rem',
-            color: '#00ffaa',
-          }}
-        >
-          📱
-        </motion.div>
-        <h1 style={{
-          fontSize: '2rem',
-          color: '#00ffaa',
-          textAlign: 'center',
-          marginBottom: '1rem',
-          textShadow: '0 0 20px #00ff88',
-        }}>
-          Please Rotate Your Device
-        </h1>
-        <p style={{
-          fontSize: '1.2rem',
-          color: '#ccc',
-          textAlign: 'center',
-          maxWidth: '300px',
-          lineHeight: 1.5,
-        }}>
-          Halo Havoc works best in landscape mode on mobile devices
-        </p>
-        </motion.div>
-      )}
+              {/* Rotation Prompt for Mobile Portrait */}
+        {showRotatePrompt && (
+          <motion.div
+            className="rotate-prompt"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              background: 'linear-gradient(120deg, #0f2027, #2c5364 60%, #00ff88 100%)',
+              zIndex: 1000,
+              padding: '2rem',
+            }}
+          >
+            <motion.div
+              animate={{ rotate: [0, 90, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              style={{
+                fontSize: '4rem',
+                marginBottom: '2rem',
+                color: '#00ffaa',
+              }}
+            >
+              📱
+            </motion.div>
+            <h1 style={{
+              fontSize: '2rem',
+              color: '#00ffaa',
+              textAlign: 'center',
+              marginBottom: '1rem',
+              textShadow: '0 0 20px #00ff88',
+            }}>
+              Please Rotate Your Device
+            </h1>
+            <p style={{
+              fontSize: '1.2rem',
+              color: '#ccc',
+              textAlign: 'center',
+              maxWidth: '300px',
+              lineHeight: 1.5,
+            }}>
+              Halo Havoc works best in landscape mode on mobile devices
+            </p>
+          </motion.div>
+        )}
+
+        {/* Scroll to Start Button */}
+        {!showRotatePrompt && (
+          <motion.button
+            className="scroll-to-start-btn"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1, duration: 0.6 }}
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            style={{
+              position: 'fixed',
+              top: '2rem',
+              right: '2rem',
+              zIndex: 999,
+              background: 'linear-gradient(90deg, #00ffaa 60%, #00ff88 100%)',
+              color: '#111',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '0.8rem 1.5rem',
+              fontSize: '1rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(0, 255, 136, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.3s ease',
+            }}
+            whileHover={{ 
+              scale: 1.05, 
+              boxShadow: '0 6px 20px rgba(0, 255, 136, 0.4)' 
+            }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <span>⬇️</span>
+            Scroll to Start
+          </motion.button>
+        )}
 
                     {!showRotatePrompt && (
         <motion.div
@@ -262,6 +334,7 @@ export default function MainMenu({ onReady }) {
           }}
         >
           💫 Halo Havoc 🚀
+          
         </motion.h1>
         <motion.h1 className="welcome-title" initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} style={{ fontSize: '3.5rem', marginBottom: '0.2rem', marginTop: '10rem', letterSpacing: '0.04em', color: '#00ffaa', textShadow: '0 2px 24px #00ff88' }}>
           Welcome to Halo Havoc
