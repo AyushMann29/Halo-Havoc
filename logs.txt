@@ -1,0 +1,4 @@
+11-07-2025 v 0.1
+Fixed bugs regarding rotation screen on Phone devices.
+Adding a return to home button
+Fixed game class selection

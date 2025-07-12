@@ -11,11 +11,19 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
   let outcome = "";
   const ORBIT_RADIUS = 400;
 
+  // --- Back Button Configuration ---
+  const backButton = { x: 15, y: 15, w: 80, h: 35, r: 5 }; // x, y, width, height, radius
+  const goBack = () => {
+    // Navigate to the root page.
+    window.location.href = "/";
+  };
+  // --- End of Back Button Configuration ---
+
   const playerStats = {
     Tank: { hp: 10, cooldown: 800, speed: 0.015 },
     Assault: { hp: 5, cooldown: 500, speed: 0.03 },
     Healer: { hp: 4, cooldown: 700, speed: 0.035 },
-    Sniper: { hp: 3, cooldown: 1000, speed: 0.05 }
+    Sniper: { hp: 3, cooldown: 1000, speed: 0.05 },
   };
 
   const myStats = playerStats[playerClass] || playerStats.Assault;
@@ -70,7 +78,7 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     p.canvas.tabIndex = -1;
     p.canvas.style.outline = 'none';
     p.canvas.addEventListener('click', () => p.canvas.focus());
-    
+
     // Add touch/click controls
     p.canvas.addEventListener('mousedown', handleTouch);
     p.canvas.addEventListener('touchstart', handleTouch);
@@ -82,8 +90,7 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     p.background(0);
     if (!myId || !players[myId]) return;
 
-    const me = players[myId];
-
+    // --- Player Logic ---
     if (p.keyIsDown(p.LEFT_ARROW) || touchLeft) myAngle -= ROTATION_SPEED;
     if (p.keyIsDown(p.RIGHT_ARROW) || touchRight) myAngle += ROTATION_SPEED;
 
@@ -99,13 +106,7 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
 
     const now = Date.now();
     if (now - lastShotTime > SHOOT_COOLDOWN) {
-      const bullet = {
-        x: predictedX,
-        y: predictedY,
-        vx: shootVx,
-        vy: shootVy,
-        roomCode
-      };
+      const bullet = { x: predictedX, y: predictedY, vx: shootVx, vy: shootVy, roomCode };
       socket.emit("shoot", bullet);
       lastShotTime = now;
     }
@@ -116,6 +117,8 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     }
     if (!p.keyIsDown(p.UP_ARROW)) usedAbility = false;
 
+    // --- World Drawing (Camera translated) ---
+    p.push();
     p.translate(p.width / 2 - predictedX, p.height / 2 - predictedY);
 
     p.noFill();
@@ -157,12 +160,7 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
       p.strokeWeight(3);
       p.ellipse(shield.x, shield.y, shield.radius * 2);
     }
-
-    p.fill("white");
-    p.textSize(14);
-    p.textAlign(p.LEFT, p.TOP);
-    p.text(`⚡ Charge: ${sharedCharge}`, predictedX - p.width / 2 + 20, predictedY - p.height / 2 + 20);
-
+    
     for (const id in players) {
       const { x, y, health } = players[id];
       if (id === myId) {
@@ -200,26 +198,57 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
         p.circle(b.x, b.y, 5);
       }
     }
+    p.pop(); // Restore camera to default
+
+    // --- HUD Drawing (Fixed on screen) ---
+    // Draw Charge UI
+    p.fill("white");
+    p.textSize(16);
+    p.textAlign(p.LEFT, p.TOP);
+    p.text(`⚡ Charge: ${sharedCharge}`, backButton.x, backButton.y + backButton.h + 15);
+
+    // Draw Back Button
+    p.fill(220, 220, 220, 200);
+    p.stroke(255);
+    p.strokeWeight(1.5);
+    p.rect(backButton.x, backButton.y, backButton.w, backButton.h, backButton.r);
+    p.fill(0);
+    p.noStroke();
+    p.textSize(16);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text("Back", backButton.x + backButton.w / 2, backButton.y + backButton.h / 2);
 
     if (gameOver) {
-      p.push();
+      p.fill(0, 0, 0, 150);
+      p.rect(0, 0, p.width, p.height); // Darken screen
       p.textAlign(p.CENTER, p.CENTER);
-      p.textSize(48);
+      p.textSize(64);
       p.fill(outcome === "victory" ? "lime" : "red");
-      p.text(outcome === "victory" ? "VICTORY!" : "DEFEAT", p.width / 2 - p.width / 2 + predictedX, p.height / 2 - p.height / 2 + predictedY);
-      p.pop();
+      p.text(outcome === "victory" ? "VICTORY!" : "DEFEAT", p.width / 2, p.height / 2);
     }
   };
-
-  // Touch/click handling functions
+  
+  // --- Input Handlers ---
   const handleTouch = (event) => {
+    // Prevent default touch actions like scrolling or zooming
     event.preventDefault();
-    const rect = p.canvas.getBoundingClientRect();
-    const x = event.clientX || (event.touches && event.touches[0].clientX) || 0;
-    const relativeX = x - rect.left;
-    const screenWidth = p.width;
     
-    if (relativeX < screenWidth / 2) {
+    // Check if the touch is on the back button first
+    const touchX = event.clientX || (event.touches && event.touches[0].clientX);
+    const touchY = event.clientY || (event.touches && event.touches[0].clientY);
+    
+    if (
+        touchX > backButton.x && touchX < backButton.x + backButton.w &&
+        touchY > backButton.y && touchY < backButton.y + backButton.h
+    ) {
+        // This area is handled by mousePressed/touchStarted
+        return;
+    }
+
+    const rect = p.canvas.getBoundingClientRect();
+    const relativeX = touchX - rect.left;
+    
+    if (relativeX < p.width / 2) {
       touchLeft = true;
       touchRight = false;
     } else {
@@ -232,6 +261,22 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     event.preventDefault();
     touchLeft = false;
     touchRight = false;
+  };
+  
+  // Handles clicks and taps on the back button
+  p.mousePressed = () => {
+      if (
+          p.mouseX > backButton.x && p.mouseX < backButton.x + backButton.w &&
+          p.mouseY > backButton.y && p.mouseY < backButton.y + backButton.h
+      ) {
+          goBack();
+      }
+  };
+  
+  // Ensures touch events on mobile also trigger the button
+  p.touchStarted = () => {
+      p.mousePressed();
+      return false; // prevent default
   };
 
   p.windowResized = () => {

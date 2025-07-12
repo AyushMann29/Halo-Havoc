@@ -4,6 +4,7 @@ import { sketch } from './sketch';
 import p5 from 'p5';
 import MainMenu from './MainMenu';
 import gameSong from './assets/game_song.mp3';
+import { Analytics } from "@vercel/analytics/react";
 
 export default function App() {
   const [selectedClass, setSelectedClass] = useState(null);
@@ -90,6 +91,7 @@ export default function App() {
           )}
         </>
       )}
+      <Analytics />
     </>
   );
 }
