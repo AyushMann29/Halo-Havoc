@@ -2,3 +2,6 @@
 Fixed bugs regarding rotation screen on Phone devices.
 Adding a return to home button
 Fixed game class selection
+
+12-07-2025
+added analytics
