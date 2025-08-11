@@ -2,12 +2,12 @@
 steps:
   # Step 1: Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'asia-south1-docker.pkg.dev/halo-havoc/halo-havoc/game-server:latest', '.']
-    dir: 'server' # Tells Cloud Build to run this command inside the 'server' directory
+    args: ['build', '-t', 'europe-west3-docker.pkg.dev/$PROJECT_ID/halo-havoc/game-server:latest', '.']
+    dir: 'server'
 
   # Step 2: Push the container image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'asia-south1-docker.pkg.dev/halo-havoc/halo-havoc/game-server:latest']
+    args: ['push', 'europe-west3-docker.pkg.dev/$PROJECT_ID/halo-havoc/game-server:latest']
 
   # Step 3: Deploy the new image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -17,8 +17,8 @@ steps:
       - 'deploy'
       - 'halo-havoc-server' # The name of your Cloud Run service
       - '--image'
-      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/halo-havoc/game-server:latest'
+      - 'europe-west3-docker.pkg.dev/$PROJECT_ID/halo-havoc/game-server:latest'
       - '--region'
-      - 'asia-south1'
+      - 'europe-west3' # Changed to the best region for your players
       - '--platform'
       - 'managed'
