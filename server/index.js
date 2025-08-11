@@ -57,13 +57,14 @@ function createNewGameState() {
 
 io.on("connection", (socket) => {
   console.log("✅ Player connected:", socket.id);
-
+  
   socket.on("joinRoom", ({ selectedClass, roomCode }) => {
     socket.join(roomCode);
     if (!rooms[roomCode]) {
       rooms[roomCode] = createNewGameState();
     }
-
+    
+    const port = process.env.PORT || 8080; // Use Cloud Run's port, or 8080 for local dev
     const room = rooms[roomCode];
     const stats = playerStats[selectedClass] || playerStats.Assault;
     const angle = generateUniqueAngle();
@@ -280,6 +281,7 @@ setInterval(() => {
   }
 }, 50);
 
-server.listen(3000, () => {
-  console.log("🚀 Server running on http://localhost:3000");
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
 });
+
