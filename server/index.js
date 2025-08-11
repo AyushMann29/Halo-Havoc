@@ -79,6 +79,14 @@ io.on("connection", (socket) => {
       maxHealth: stats.hp,
       invincibleUntil: 0
     };
+    io.to(roomCode).emit("playerJoined", {
+      id: socket.id,
+      x,
+      y,
+      className: selectedClass,
+      health: stats.hp,
+      maxHealth: stats.hp
+    });
 
     socket.data.roomCode = roomCode;
 
