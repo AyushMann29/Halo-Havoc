@@ -64,7 +64,7 @@ io.on("connection", (socket) => {
       rooms[roomCode] = createNewGameState();
     }
     
-    const port = process.env.PORT || 8080; // Use Cloud Run's port, or 8080 for local dev
+    const port =  3000; 
     const room = rooms[roomCode];
     const stats = playerStats[selectedClass] || playerStats.Assault;
     const angle = generateUniqueAngle();
