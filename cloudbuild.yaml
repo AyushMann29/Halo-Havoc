@@ -17,3 +17,8 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+      - '--timeout=60m'
+      - '--min-instances=1'
+      - '--concurrency=50'
+      - '--memory=512Mi'
+      - '--set-env-vars=PORT=8080'

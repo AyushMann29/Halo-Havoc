@@ -1,84 +1,125 @@
 import React, { useState, useEffect } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 
 const CLASSES = [
   {
-    name: 'Tank',
-    description: 'Slow but very durable. Absorbs a lot of damage. (Easy)',
-    stats: 'HP: 10, Speed: Low, Damage: Low',
-    skill: 'Invincibility - 3 charges',
-    skillDescription: 'Become immune to all damage temporarily'
+    name: 'Reimu',
+    icon: '⛩️',
+    color: '#e83030',
+    description: 'Shrine maiden of the Hakurei shrine. Barrier specialist.',
+    hp: 10,
+    speed: 2,
+    damage: 2,
+    skill: 'Shield Barrier - 3 charges',
+    skillDescription: 'Create a protective barrier that blocks all bullets'
   },
   {
-    name: 'Assault',
-    description: 'Balanced fighter. Good all-around. (Medium)',
-    stats: 'HP: 5, Speed: Medium, Damage: Medium',
-    skill: 'Triple Shot - 4 charges',
+    name: 'Marisa',
+    icon: '🧙',
+    color: '#ff7b24',
+    description: 'Ordinary witch. Loves firepower and flashy attacks.',
+    hp: 5,
+    speed: 4,
+    damage: 4,
+    skill: 'Triple Spark - 4 charges',
     skillDescription: 'Fire three projectiles in a spread pattern'
   },
   {
-    name: 'Healer',
-    description: 'Supports teammates with healing abilities. (Hard)',
-    stats: 'HP: 4, Speed: High, Heal ability',
-    skill: 'Heal All - 5 charges',
+    name: 'Eirin',
+    icon: '🏹',
+    color: '#2e8bcc',
+    description: 'Lunar sage and physician. Supports allies.',
+    hp: 4,
+    speed: 3,
+    damage: 3,
+    skill: 'Lunar Healing - 5 charges',
     skillDescription: 'Restore health to all nearby teammates'
   },
   {
-    name: 'Sniper',
-    description: 'Fast and deadly, but fragile. (Challenging)',
-    stats: 'HP: 3, Speed: Very High, Damage: High',
-    skill: 'Great Shot - 4 charges',
-    skillDescription: 'Fire a high-damage piercing shot'
+    name: 'Youmu',
+    icon: '⚔️',
+    color: '#38b86a',
+    description: 'Half-human half-phantom swordswoman. Precise and deadly.',
+    hp: 3,
+    speed: 5,
+    damage: 5,
+    skill: 'Slash of Eternity - 4 charges',
+    skillDescription: 'Fire a high-damage piercing sword slash'
   },
 ];
 
-export default function MainMenu({ onReady }) {
-  const [selectedClass, setSelectedClass] = useState(CLASSES[0].name);
-  const [roomCode, setRoomCode] = useState('');
-  const [joining, setJoining] = useState(false);
+function StatBar({ value, max, color, label }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', width: '100%' }}>
+      <span style={{ color: '#999', fontSize: '0.7rem', width: '1rem', fontFamily: 'monospace' }}>{label}</span>
+      <div style={{ flex: 1, height: '4px', background: '#2a2a2a', borderRadius: '2px', overflow: 'hidden' }}>
+        <div style={{ width: `${(value / max) * 100}%`, height: '100%', background: color, borderRadius: '2px' }} />
+      </div>
+    </div>
+  );
+}
+
+function FloatingOrbs() {
+  const orbs = Array.from({ length: 4 }, (_, i) => ({
+    size: Math.random() * 60 + 30,
+    x: Math.random() * 100,
+    y: Math.random() * 100,
+    delay: i * 1.5,
+    duration: Math.random() * 6 + 8,
+  }));
+  return (
+    <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 0 }}>
+      {orbs.map((orb, i) => (
+        <motion.div
+          key={i}
+          style={{
+            position: 'absolute',
+            width: orb.size,
+            height: orb.size,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, rgba(0,255,136,0.08), transparent)`,
+            left: `${orb.x}%`,
+            top: `${orb.y}%`,
+          }}
+          animate={{
+            x: [0, 30, -20, 0],
+            y: [0, -40, 20, 0],
+            scale: [1, 1.3, 0.9, 1],
+          }}
+          transition={{
+            duration: orb.duration,
+            repeat: Infinity,
+            ease: 'easeInOut',
+            delay: orb.delay,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export default function MainMenu({ selectedClass, onSelectClass, onHost, onJoin }) {
   const [showRotatePrompt, setShowRotatePrompt] = useState(false);
 
   useEffect(() => {
-    document.title = '💫 Halo Havoc 🚀';
+    document.title = 'Halo Havoc';
 
-    // Function to handle screen size changes
-    const handleScreenSizeChange = () => {
+    const checkOrientation = () => {
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       const isSmallScreen = window.innerWidth < 768;
       const isPortrait = window.innerHeight > window.innerWidth;
-
-      // Show rotate prompt on mobile devices with small screens in portrait mode
-      if (isMobile && isSmallScreen && isPortrait) {
-        setShowRotatePrompt(true);
-      } else {
-        setShowRotatePrompt(false);
-      }
+      setShowRotatePrompt(isMobile && isSmallScreen && isPortrait);
     };
 
-    // Initial check
-    handleScreenSizeChange();
-
-    // Add event listeners
-    window.addEventListener('resize', handleScreenSizeChange);
-    window.addEventListener('orientationchange', handleScreenSizeChange);
-
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
     return () => {
-      window.removeEventListener('resize', handleScreenSizeChange);
-      window.removeEventListener('orientationchange', handleScreenSizeChange);
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
     };
   }, []);
-
-  const handleReady = () => {
-    if (selectedClass && roomCode.trim()) {
-      onReady({ selectedClass, roomCode: roomCode.trim().toUpperCase() });
-    }
-  };
-
-  const generateRoomCode = () => {
-    const code = Math.random().toString(36).substr(2, 5).toUpperCase();
-    setRoomCode(code);
-    setJoining(false);
-  };
 
   const selectedClassData = CLASSES.find(cls => cls.name === selectedClass);
 
@@ -91,473 +132,231 @@ export default function MainMenu({ onReady }) {
         minWidth: '100vw',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'flex-start',
         alignItems: 'center',
-        background: 'linear-gradient(120deg, #0f2027, #2c5364 60%, #00ff88 100%)',
-        backgroundSize: '200% 200%',
-        animation: 'bgMove 10s ease-in-out infinite',
+        background: 'linear-gradient(135deg, #0a0f14, #0d1b1a 40%, #0a1a14 70%, #0f2027)',
         overflow: 'auto',
-        paddingTop: '2rem',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
       }}
     >
-      {/* Animated background gradient keyframes */}
       <style>{`
-        @keyframes bgMove {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
+        @keyframes bgDrift {
+          0% { background-position: 0% 30%; }
+          50% { background-position: 100% 70%; }
+          100% { background-position: 0% 30%; }
         }
-        
-        /* The problematic 'display: flex !important;' and 'display: none !important;' rules have been removed from here. */
-        /* React's conditional rendering now fully controls when the prompt and main content are shown. */
-
-        /* Small screen landscape layout adjustments */
-        @media screen and (max-width: 768px) and (max-height: 600px) {
-          .main-container {
-            padding: 1rem 2rem 1rem 2rem !important;
-            margin-top: 5rem !important;
-            margin-bottom: 2rem !important;
-          }
-          .game-title {
-            font-size: 2.5rem !important;
-            margin-bottom: 0.5rem !important;
-          }
-          .welcome-title {
-            font-size: 2.2rem !important;
-            margin-top: 2rem !important;
-            margin-bottom: 0.1rem !important;
-          }
-          .choose-title {
-            font-size: 1.8rem !important;
-            margin-bottom: 0.8rem !important;
-          }
-          .controls-section {
-            margin-bottom: 1.5rem !important;
-            padding: 0.8rem !important;
-          }
-          .classes-container {
-            gap: 1rem !important;
-            margin-bottom: 1.5rem !important;
-          }
-          .class-card {
-            padding: 1.2rem !important;
-            width: 200px !important;
-          }
-          .room-section {
-            margin-bottom: 1.5rem !important;
-          }
-          .ready-button {
-            margin-bottom: 1.5rem !important;
-            padding: 1rem 2.5rem !important;
-            font-size: 1.2rem !important;
-          }
-          .footer {
-            padding-top: 0.5rem !important;
-            padding-bottom: 0.8rem !important;
-          }
-        }
-        
-        /* Ensure proper scrolling on mobile landscape */
-        @media screen and (max-width: 768px) and (max-height: 600px) {
-          body {
-            overflow-y: auto !important;
-            height: auto !important;
-          }
-          .main-content {
-            position: relative !important;
-            top: auto !important;
-          }
-        }
-        
-        /* Hide scroll button on very small screens */
-        @media screen and (max-width: 480px) {
-          .scroll-to-start-btn {
-            display: none !important;
-          }
-        }
-        
-        /* Adjust scroll button position on mobile landscape */
-        @media screen and (max-width: 768px) and (max-height: 600px) {
-          .scroll-to-start-btn {
-            top: 1rem !important;
-            right: 1rem !important;
-            padding: 0.6rem 1rem !important;
-            font-size: 0.9rem !important;
-          }
-        }
+        body { margin: 0; }
+        input::selection { background: #00ff88; color: #111; }
       `}</style>
-      {/* Rotation Prompt for Mobile Portrait */}
+
+      <FloatingOrbs />
+
       {showRotatePrompt && (
         <motion.div
-          className="rotate-prompt"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           style={{
-            position: 'fixed',
-            inset: 0,
-            display: 'flex', // This `display: 'flex'` is correctly applied by React when `showRotatePrompt` is true.
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            background: 'linear-gradient(120deg, #0f2027, #2c5364 60%, #00ff88 100%)',
-            zIndex: 1000,
-            padding: '2rem',
+            position: 'fixed', inset: 0,
+            display: 'flex', flexDirection: 'column',
+            justifyContent: 'center', alignItems: 'center',
+            background: 'radial-gradient(ellipse at center, #0d1b1a, #0a0f14)',
+            zIndex: 1000, padding: '2rem',
           }}
         >
           <motion.div
             animate={{ rotate: [0, 90, 0] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            style={{
-              fontSize: '4rem',
-              marginBottom: '2rem',
-              color: '#00ffaa',
-            }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            style={{ fontSize: '5rem', marginBottom: '2rem', filter: 'drop-shadow(0 0 20px #00ff8866)' }}
           >
             📱
           </motion.div>
-          <h1 style={{
-            fontSize: '2rem',
-            color: '#00ffaa',
-            textAlign: 'center',
-            marginBottom: '1rem',
-            textShadow: '0 0 20px #00ff88',
-          }}>
-            Please Rotate Your Device
+          <h1 style={{ fontSize: '2rem', color: '#00ffaa', textAlign: 'center', marginBottom: '0.5rem', textShadow: '0 0 30px #00ff8866', fontWeight: 700 }}>
+            Rotate Your Device
           </h1>
-          <p style={{
-            fontSize: '1.2rem',
-            color: '#ccc',
-            textAlign: 'center',
-            maxWidth: '300px',
-            lineHeight: 1.5,
-          }}>
-            Halo Havoc works best in landscape mode on mobile devices
+          <p style={{ fontSize: '1rem', color: '#889', textAlign: 'center', maxWidth: '280px', lineHeight: 1.6 }}>
+            Halo Havoc works best in landscape mode
           </p>
         </motion.div>
       )}
 
-      {/* Scroll to Start Button */}
       {!showRotatePrompt && (
-        <motion.button
-          className="scroll-to-start-btn"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1, duration: 0.6 }}
-          onClick={() => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          style={{
-            position: 'fixed',
-            top: '2rem',
-            right: '2rem',
-            zIndex: 999,
-            background: 'linear-gradient(90deg, #00ffaa 60%, #00ff88 100%)',
-            color: '#111',
-            border: 'none',
-            borderRadius: '12px',
-            padding: '0.8rem 1.5rem',
-            fontSize: '1rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(0, 255, 136, 0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            transition: 'all 0.3s ease',
-          }}
-          whileHover={{ 
-            scale: 1.05, 
-            boxShadow: '0 6px 20px rgba(0, 255, 136, 0.4)' 
-          }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <span>⬇️</span>
-          Scroll to Start
-        </motion.button>
-      )}
-
-      {/* Main Content (only shown if not in portrait/small screen) */}
-      {!showRotatePrompt && (
-        <motion.div
-          className="main-content main-container"
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-          style={{
-            background: 'rgba(20, 30, 40, 0.85)',
-            boxShadow: '0 8px 40px 0 rgba(0,255,136,0.10)',
-            borderRadius: '24px',
-            padding: '2.5rem 2.5rem 1.5rem 2.5rem',
-            maxWidth: '900px',
-            width: '95vw',
-            margin: '2rem 0',
-            backdropFilter: 'blur(12px)',
-            border: '2px solid rgba(0,255,136,0.10)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}
-        >
-          {/* Game Title Heading */}
-          <motion.h1
-            className="game-title"
-            initial={{ opacity: 0, y: -60 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-            style={{
-              fontSize: '3.6rem',
-              letterSpacing: '0.08em',
-              color: '#00ffaa',
-              textShadow: '0 0 32px #00ff88, 0 2px 24px #00ffaa',
-              fontWeight: 900,
-              fontFamily: 'Orbitron, sans-serif',
-              textAlign: 'center',
-              lineHeight: 1.1,
-            }}
-          >
-            💫 Halo Havoc 🚀
-
-          </motion.h1>
-          <motion.h1 className="welcome-title" initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} style={{ fontSize: '3.5rem', marginBottom: '0.2rem', marginTop: '10rem', letterSpacing: '0.04em', color: '#00ffaa', textShadow: '0 2px 24px #00ff88' }}>
-            Welcome to Halo Havoc
-          </motion.h1>
-          <motion.h1 className="choose-title" initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} style={{ fontSize: '3rem', marginBottom: '1.2rem', letterSpacing: '0.04em', color: '#00ffaa', textShadow: '0 2px 24px #00ff88' }}>
-            🚀 Choose Your Class
-          </motion.h1>
-
-          {/* Controls Instructions */}
+        <>
           <motion.div
-            className="controls-section"
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
-            style={{
-              backgroundColor: 'rgba(26,26,26,0.85)',
-              border: '2px solid #333',
-              borderRadius: '16px',
-              padding: '1.1rem',
-              margin: '0 auto 2.2rem auto',
-              maxWidth: '600px',
-              boxShadow: '0 4px 15px rgba(0, 255, 136, 0.13)'
-            }}
+            transition={{ duration: 0.6 }}
+            style={{ marginTop: '2rem', marginBottom: '0.5rem', textAlign: 'center', position: 'relative', zIndex: 1 }}
           >
-            <h3 style={{ color: '#00ffaa', marginBottom: '0.8rem', fontSize: '1.3rem', letterSpacing: '0.03em' }}>🎮 Game Controls</h3>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ backgroundColor: '#333', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.9rem' }}>←→</span>
-                <span style={{ color: '#ccc' }}>Rotate</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ backgroundColor: '#333', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.9rem' }}>↑</span>
-                <span style={{ color: '#ccc' }}>Use Skill</span>
-              </div>
-            </div>
+            <h1 style={{
+              fontSize: 'clamp(2rem, 5vw, 4rem)', letterSpacing: '0.06em',
+              color: '#00ffaa', textShadow: '0 0 40px #00ff8844, 0 0 80px #00ff8822',
+              fontWeight: 800, fontFamily: 'Orbitron, system-ui, sans-serif',
+              margin: 0, lineHeight: 1.1,
+            }}>
+              HALO HAVOC
+            </h1>
+            <div style={{ height: '3px', width: '60px', background: 'linear-gradient(90deg, transparent, #00ffaa, transparent)', margin: '0.5rem auto 0' }} />
           </motion.div>
 
-          <div className="classes-container" style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '2.2rem' }}>
-            {CLASSES.map((cls) => (
-              <motion.div
-                key={cls.name}
-                className="class-card"
-                onClick={() => setSelectedClass(cls.name)}
-                whileHover={{ scale: 1.08, boxShadow: '0 0 32px #00ff88' }}
-                whileTap={{ scale: 0.97 }}
-                animate={{ borderColor: selectedClass === cls.name ? '#00ff88' : '#444', boxShadow: selectedClass === cls.name ? '0 0 32px #00ff88' : '0 0 10px #222' }}
-                style={{
-                  border: '3px solid',
-                  borderRadius: '18px',
-                  padding: '1.7rem',
-                  width: '230px',
-                  cursor: 'pointer',
-                  background: selectedClass === cls.name ? 'linear-gradient(120deg, #222 80%, #00ff88 120%)' : 'rgba(17,17,17,0.95)',
-                  boxShadow: selectedClass === cls.name ? '0 0 32px #00ff88' : '0 0 10px #222',
-                  transition: 'all 0.25s cubic-bezier(.4,2,.6,1)',
-                  marginBottom: '0.5rem',
-                  position: 'relative',
-                }}
-              >
-                <h2 style={{ color: '#00ffaa', fontSize: '1.5rem', marginBottom: '0.5rem', letterSpacing: '0.02em' }}>{cls.name}</h2>
-                <p style={{ marginBottom: '0.8rem', color: '#fff', fontWeight: 500 }}>{cls.description}</p>
-                <small style={{ color: '#ccc', display: 'block', marginBottom: '0.5rem' }}>{cls.stats}</small>
-                <div style={{
-                  background: 'rgba(10,10,10,0.85)',
-                  padding: '0.5rem',
-                  borderRadius: '8px',
-                  border: '1px solid #333',
-                  marginTop: '0.8rem',
-                  boxShadow: '0 2px 8px #00ff8855',
-                }}>
-                  <div style={{ color: '#ff6b6b', fontSize: '0.95rem', fontWeight: 'bold' }}>🔥 {cls.skill}</div>
-                  <div style={{ color: '#aaa', fontSize: '0.85rem', marginTop: '0.3rem' }}>{cls.skillDescription}</div>
-                </div>
-                {selectedClass === cls.name && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    style={{
-                      position: 'absolute',
-                      top: 10, right: 10,
-                      background: '#00ff88',
-                      color: '#111',
-                      borderRadius: '50%',
-                      width: 28, height: 28,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 'bold', fontSize: '1.1rem',
-                      boxShadow: '0 0 8px #00ff88',
-                    }}
-                  >
-                    ✓
-                  </motion.div>
-                )}
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Selected Class Skill Highlight */}
-          {selectedClassData && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1 }}
+            style={{
+              position: 'relative', zIndex: 1, width: '95vw', maxWidth: '1000px',
+              margin: '0.5rem auto 1rem', padding: '1.5rem 2rem 1.2rem',
+              borderRadius: '20px',
+              background: 'linear-gradient(135deg, rgba(15,25,30,0.92), rgba(20,30,35,0.88))',
+              border: '1px solid rgba(0,255,136,0.08)',
+              boxShadow: '0 4px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            {/* Controls badge */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3 }}
               style={{
-                background: 'rgba(26,26,26,0.92)',
-                border: '2px solid #00ff88',
-                borderRadius: '14px',
-                padding: '1.1rem',
-                margin: '0 auto 2rem auto',
-                maxWidth: '400px',
-                boxShadow: '0 0 20px rgba(0, 255, 136, 0.22)',
-                textAlign: 'center',
+                display: 'flex', gap: '1rem', flexWrap: 'wrap',
+                justifyContent: 'center', marginBottom: '0.8rem',
+                padding: '0.5rem 1rem', borderRadius: '30px',
+                background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.05)',
               }}
             >
-              <h4 style={{ color: '#00ffaa', marginBottom: '0.5rem', fontSize: '1.1rem', letterSpacing: '0.02em' }}>✨ Selected Skill</h4>
-              <div style={{ color: '#ff6b6b', fontSize: '1.15rem', fontWeight: 'bold' }}>
-                {selectedClassData.name}: {selectedClassData.skill}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ background: 'rgba(0,255,136,0.12)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem', color: '#00ffaa', fontFamily: 'monospace', fontWeight: 700 }}>WASD / Arrows</span>
+                <span style={{ color: '#778', fontSize: '0.8rem' }}>Move</span>
               </div>
-              <div style={{ color: '#ccc', fontSize: '0.95rem', marginTop: '0.3rem' }}>
-                {selectedClassData.skillDescription}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ background: 'rgba(255,100,100,0.15)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem', color: '#ff6b6b', fontFamily: 'monospace', fontWeight: 700 }}>Z</span>
+                <span style={{ color: '#778', fontSize: '0.8rem' }}>Bomb</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ background: 'rgba(0,255,136,0.12)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem', color: '#00ffaa', fontFamily: 'monospace', fontWeight: 700 }}>X</span>
+                <span style={{ color: '#778', fontSize: '0.8rem' }}>Skill</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ background: 'rgba(100,200,255,0.15)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem', color: '#64c8ff', fontFamily: 'monospace', fontWeight: 700 }}>Shift</span>
+                <span style={{ color: '#778', fontSize: '0.8rem' }}>Focus</span>
               </div>
             </motion.div>
-          )}
 
-          {/* Room code input and create button in a card */}
-          <motion.div className="room-section" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} style={{ marginBottom: '2.2rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <div style={{
-              background: 'rgba(34,34,34,0.92)',
-              border: '1.5px solid #00ffaa44',
-              borderRadius: '12px',
-              padding: '1rem 1.2rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.7rem',
-              boxShadow: '0 2px 12px #00ff8844',
-              minWidth: 320,
-              maxWidth: 420,
-            }}>
-              <span style={{ fontSize: '1.3rem', color: '#00ffaa', marginRight: 6 }}>🏷️</span>
-              <input
-                type="text"
-                value={roomCode}
-                onChange={(e) => {
-                  setRoomCode(e.target.value.toUpperCase());
-                  setJoining(true);
-                }}
-                placeholder="Enter room code"
+            {/* Class cards */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem', width: '100%' }}>
+              {CLASSES.map((cls) => {
+                const isSelected = selectedClass === cls.name;
+                return (
+                  <motion.div
+                    key={cls.name}
+                    onClick={() => onSelectClass(cls.name)}
+                    whileHover={{ y: -4, boxShadow: `0 8px 30px ${cls.color}22` }}
+                    whileTap={{ scale: 0.97 }}
+                    animate={{
+                      borderColor: isSelected ? cls.color : 'rgba(255,255,255,0.06)',
+                      boxShadow: isSelected ? `0 0 30px ${cls.color}22, inset 0 0 30px ${cls.color}11` : '0 4px 16px rgba(0,0,0,0.3)',
+                    }}
+                    style={{
+                      border: '2px solid', borderRadius: '16px', padding: '1.2rem 1rem',
+                      width: '190px', cursor: 'pointer',
+                      background: isSelected ? 'linear-gradient(145deg, rgba(30,35,40,0.95), rgba(20,25,30,0.9))' : 'rgba(15,18,22,0.8)',
+                      transition: 'border-color 0.2s', position: 'relative', flexShrink: 0,
+                    }}
+                  >
+                    {isSelected && (
+                      <motion.div
+                        layoutId="selectedGlow"
+                        style={{ position: 'absolute', inset: -2, borderRadius: '18px', border: `2px solid ${cls.color}`, pointerEvents: 'none' }}
+                      />
+                    )}
+                    <div style={{ fontSize: '2rem', textAlign: 'center', marginBottom: '0.2rem', filter: isSelected ? 'none' : 'grayscale(0.3)' }}>{cls.icon}</div>
+                    <h3 style={{ color: cls.color, fontSize: '1.1rem', margin: '0 0 0.2rem', textAlign: 'center', fontWeight: 700, letterSpacing: '0.02em' }}>{cls.name}</h3>
+                    <p style={{ margin: '0 0 0.5rem', color: '#667', fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.3 }}>{cls.description}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', padding: '0.2rem 0.1rem' }}>
+                      <StatBar value={cls.hp} max={10} color="#e74c3c" label="HP" />
+                      <StatBar value={cls.speed} max={5} color="#3498db" label="SP" />
+                      <StatBar value={cls.damage} max={5} color="#f39c12" label="AT" />
+                    </div>
+                    <div style={{ marginTop: '0.5rem', padding: '0.4rem 0.4rem 0.35rem', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: `1px solid ${cls.color}22` }}>
+                      <div style={{ color: '#ff6b6b', fontSize: '0.8rem', fontWeight: 600, textAlign: 'center' }}>{cls.skill}</div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Skill detail */}
+            {selectedClassData && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
                 style={{
-                  padding: '0.7rem',
-                  fontSize: '1.1rem',
-                  textTransform: 'uppercase',
-                  width: '140px',
-                  marginRight: '0.5rem',
-                  borderRadius: '8px',
-                  border: '1.5px solid #00ffaa',
-                  background: '#181818',
-                  color: 'lime',
-                  outline: 'none',
-                  letterSpacing: '0.12em',
-                  fontWeight: 600,
-                  boxShadow: '0 1px 6px #00ff8822',
-                  transition: 'border 0.2s',
+                  background: 'rgba(0,0,0,0.2)', border: `1px solid ${selectedClassData.color}22`,
+                  borderRadius: '10px', padding: '0.5rem 1rem', textAlign: 'center',
+                  width: '100%', maxWidth: '600px', marginBottom: '1.2rem',
                 }}
-              />
-              <button onClick={generateRoomCode} style={{ padding: '0.7rem 1.2rem', borderRadius: '8px', background: 'linear-gradient(90deg,#00ffaa 60%,#00ff88 100%)', color: '#111', border: 'none', fontWeight: 700, fontSize: '1.05rem', boxShadow: '0 2px 8px #00ff8844', cursor: 'pointer', transition: 'background 0.2s' }}>
-                🔄 Create
-              </button>
+              >
+                <div style={{ color: selectedClassData.color, fontSize: '0.85rem', fontWeight: 600 }}>
+                  {selectedClassData.icon} {selectedClassData.skill}
+                </div>
+                <div style={{ color: '#667', fontSize: '0.8rem', marginTop: '0.1rem' }}>{selectedClassData.skillDescription}</div>
+              </motion.div>
+            )}
+
+            {/* Host / Join buttons */}
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <motion.button
+                onClick={onHost}
+                disabled={!selectedClass}
+                whileHover={selectedClass ? { scale: 1.04 } : {}}
+                style={{
+                  padding: '0.8rem 2.5rem', fontSize: '1.1rem', fontWeight: 700,
+                  background: selectedClass ? 'linear-gradient(135deg, #00ffaa, #00dd88)' : 'rgba(60,60,60,0.4)',
+                  color: selectedClass ? '#0a0a0a' : '#555',
+                  border: 'none', borderRadius: '12px',
+                  cursor: selectedClass ? 'pointer' : 'not-allowed',
+                  boxShadow: selectedClass ? '0 4px 24px rgba(0,255,136,0.25)' : 'none',
+                  letterSpacing: '0.03em', transition: 'all 0.15s',
+                }}
+              >
+                Host Game
+              </motion.button>
+
+              <motion.button
+                onClick={onJoin}
+                disabled={!selectedClass}
+                whileHover={selectedClass ? { scale: 1.04 } : {}}
+                style={{
+                  padding: '0.8rem 2.5rem', fontSize: '1.1rem', fontWeight: 700,
+                  background: selectedClass ? 'rgba(255,255,255,0.08)' : 'rgba(60,60,60,0.4)',
+                  color: selectedClass ? '#eee' : '#555',
+                  border: selectedClass ? '1px solid rgba(255,255,255,0.15)' : 'none',
+                  borderRadius: '12px',
+                  cursor: selectedClass ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.15s',
+                }}
+              >
+                Join Game
+              </motion.button>
             </div>
           </motion.div>
 
-          <motion.button
-            className="ready-button"
-            onClick={handleReady}
-            disabled={!selectedClass || !roomCode}
-            whileHover={selectedClass && roomCode ? { scale: 1.07, boxShadow: '0 0 32px #00ff88' } : {}}
-            style={{
-              marginBottom: '2.5rem',
-              padding: '1.3rem 3.5rem',
-              fontSize: '1.45rem',
-              fontWeight: 700,
-              background: selectedClass && roomCode ? 'linear-gradient(90deg,#00ffaa 60%,#00ff88 100%)' : '#444',
-              color: selectedClass && roomCode ? '#111' : '#888',
-              border: 'none',
-              borderRadius: '16px',
-              cursor: selectedClass && roomCode ? 'pointer' : 'not-allowed',
-              boxShadow: selectedClass && roomCode ? '0 0 24px #00ff88' : 'none',
-              letterSpacing: '0.04em',
-              transition: 'all 0.2s cubic-bezier(.4,2,.6,1)',
-            }}
+          <motion.footer
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8 }}
+            style={{ position: 'relative', zIndex: 1, padding: '0.8rem 1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.8rem', fontSize: '0.85rem', color: '#445' }}
           >
-            {selectedClass ? `🎮 Enter Room ${roomCode || ''}` : 'Select class & room'}
-          </motion.button>
-        </motion.div>
+            <span style={{ color: '#00ffaa88' }}>Created by Ayush Mann</span>
+            <span style={{ color: '#334' }}>|</span>
+            <a href="https://github.com/ayushmann29" target="_blank" rel="noopener noreferrer" style={{ color: '#00ffaa88', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem', transition: 'color 0.2s' }}
+              onMouseEnter={(e) => e.target.style.color = '#00ffaa'}
+              onMouseLeave={(e) => e.target.style.color = '#00ffaa88'}
+            >GitHub</a>
+          </motion.footer>
+        </>
       )}
-
-      {/* Footer */}
-      <motion.footer
-        className="footer"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8, duration: 0.6 }}
-        style={{
-          width: '100vw',
-          maxWidth: '100vw',
-          position: 'fixed',
-          left: 0,
-          bottom: 0,
-          borderTop: '1.5px solid #00ffaa33',
-          paddingTop: '1rem',
-          paddingBottom: '1.2rem',
-          background: 'rgba(20,30,40,0.85)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '1.2rem',
-          flexWrap: 'wrap',
-          fontSize: '1rem',
-          zIndex: 100,
-          boxShadow: '0 -2px 16px #00ff8822',
-        }}
-      >
-        <div style={{ color: '#00ffaa', fontWeight: 'bold', letterSpacing: '0.03em' }}>
-          Created by Ayush Mann
-        </div>
-        <div style={{ color: '#555' }}>|</div>
-        <a
-          href="https://github.com/ayushmann29"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            color: '#00ffaa',
-            textDecoration: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            fontWeight: 600,
-            transition: 'color 0.3s ease',
-          }}
-        >
-          <span>🐙</span> GitHub
-        </a>
-      </motion.footer>
     </div>
   );
 }

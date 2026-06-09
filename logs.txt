@@ -1,3 +1,6 @@
+Always maintain logs
+
+
 11-07-2025 v 0.1
 Fixed bugs regarding rotation screen on Phone devices.
 Adding a return to home button
@@ -5,3 +8,18 @@ Fixed game class selection
 
 12-07-2025
 added analytics
+
+07-06-2026
+Fixed backend: server.listen() replaces app.listen() so Socket.IO works
+Fixed backend port: uses process.env.PORT || 3000
+Fixed Dockerfile: CMD runs index.js, not server.js
+Fixed frontend socket URL: uses VITE_SERVER_URL env var with http://localhost:3000 fallback
+MainMenu: condensed to single title, removed scroll button, static footer
+MainMenu: class cards with unique per-class colors, emojis, stat bars
+MainMenu: redesigned UI with floating orbs, softer dark theme, cleaner layout
+In-game: nebula glow background with phase-tracking colors
+In-game: Touhou-style boss with layered shape, focused hitbox, spell card banner, dynamic HP bar
+In-game: class-specific ship shapes instead of plain circles
+In-game: class-distinct bullet visuals with glow effects
+In-game: enemy bullet glow for legibility
+In-game: invincibility blink feedback
