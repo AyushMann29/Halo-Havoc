@@ -9,6 +9,14 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
   let gameOver = false;
   let outcome = "";
   let usedAbility = false;
+  let fairies = [];
+  let skillEffects = [];
+  let skillCooldownUntil = 0;
+
+  // Cheat states
+  let godMode = false;
+  let infiniteCharges = false;
+  let megaDamage = false;
 
   const ARENA_W = 800;
   const ARENA_H = 600;
@@ -140,6 +148,12 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
       if (state.bossIndex !== undefined) boss.bossIndex = state.bossIndex;
       sharedCharge = state.sharedCharge || 0;
       shield = state.shield || null;
+      fairies = state.fairies || [];
+      skillEffects = state.skillEffects || [];
+
+      if (players[myId] && players[myId].skillCooldownUntil) {
+        skillCooldownUntil = players[myId].skillCooldownUntil;
+      }
 
       if (!gameOver) {
         const me = players[myId];
@@ -205,9 +219,6 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
       usedAbility = true;
     }
     if (!keys['x']) usedAbility = false;
-
-
-
     // --- Screen shake offset ---
     let shakeX = 0, shakeY = 0;
     if (shakeAmount > 0 && now < shakeTime) {
@@ -252,9 +263,19 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
 
     // --- Draw boss (if alive) ---
     if (boss.currentHealth > 0) {
-      const bscx = boss.x * sx;
-      const bscy = boss.y * sy;
-      drawBoss(bscx, bscy, now);
+      if (boss.isMultiBoss) {
+        for (const mb of boss.bosses) {
+          if (mb.hp <= 0) continue;
+          const bscx = mb.x * sx;
+          const bscy = mb.y * sy;
+          drawMiniBoss(bscx, bscy, now, mb);
+        }
+        drawMultiBossHP();
+      } else {
+        const bscx = boss.x * sx;
+        const bscy = boss.y * sy;
+        drawBoss(bscx, bscy, now);
+      }
     }
 
     // Shield
@@ -280,10 +301,10 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
       }
       // Focus hitbox dot (actual hurtbox size)
       if (isMe && focusMode) {
-        p.fill(255, 255, 100, 200);
+        p.fill(255, 50, 50, 220);
         p.noStroke();
         p.circle(px, py, PLAYER_HURTBOX * 2);
-        p.fill(255, 255, 255, 80);
+        p.fill(255, 100, 100, 100);
         p.circle(px, py, PLAYER_HURTBOX * 4);
       }
     }
@@ -305,7 +326,25 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
       const b = bullets[i];
       const bx = b.x * sx;
       const by = b.y * sy;
-      if (b.special === "sniper") {
+      if (b.special === "slash") {
+        const angle = Math.atan2(b.vy, b.vx);
+        p.push();
+        p.translate(bx, by);
+        p.rotate(angle + p.HALF_PI);
+        p.stroke(200, 255, 200, 200);
+        p.strokeWeight(3 * Math.min(sx, sy));
+        p.line(0, -15 * Math.min(sx, sy), 0, 15 * Math.min(sx, sy));
+        p.stroke(255, 255, 255, 100);
+        p.strokeWeight(6 * Math.min(sx, sy));
+        p.line(0, -10 * Math.min(sx, sy), 0, 10 * Math.min(sx, sy));
+        p.pop();
+      } else if (b.special === "laser") {
+        p.fill(255, 200, 50, 220);
+        p.noStroke();
+        p.ellipse(bx, by, 20 * Math.min(sx, sy), 12 * Math.min(sx, sy));
+        p.fill(255, 255, 200, 150);
+        p.ellipse(bx, by, 30 * Math.min(sx, sy), 18 * Math.min(sx, sy));
+      } else if (b.special === "sniper") {
         p.fill(255, 255, 100, 220);
         p.noStroke();
         p.ellipse(bx, by, 14 * Math.min(sx, sy), 6 * Math.min(sx, sy));
@@ -323,6 +362,77 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
         p.circle(bx, by, 8 * Math.min(sx, sy));
         p.fill(200, 240, 255, 80);
         p.circle(bx, by, 13 * Math.min(sx, sy));
+      }
+    }
+
+    // --- Fairies ---
+    for (const fairy of fairies) {
+      const fx = fairy.x * sx;
+      const fy = fairy.y * sy;
+      const fsc = Math.min(sx, sy);
+      p.push();
+      p.translate(fx, fy);
+      p.fill(180, 220, 255, 180);
+      p.noStroke();
+      p.ellipse(0, 0, 12 * fsc, 14 * fsc);
+      p.fill(255, 255, 255, 150);
+      p.ellipse(-8 * fsc, -2 * fsc, 8 * fsc, 12 * fsc);
+      p.ellipse(8 * fsc, -2 * fsc, 8 * fsc, 12 * fsc);
+      p.fill(255, 220, 180, 200);
+      p.circle(0, -4 * fsc, 6 * fsc);
+      p.fill(100, 150, 200, 180);
+      p.arc(0, -4 * fsc, 8 * fsc, 6 * fsc, p.PI, 0);
+      const hpRatio = fairy.hp / 20;
+      p.fill(60, 20, 20, 150);
+      p.rect(-8 * fsc, -12 * fsc, 16 * fsc, 2 * fsc, 1);
+      p.fill(100, 200, 100, 200);
+      p.rect(-8 * fsc, -12 * fsc, 16 * fsc * hpRatio, 2 * fsc, 1);
+      p.pop();
+    }
+
+    // --- Skill Effects ---
+    const now2 = Date.now();
+    for (const effect of skillEffects) {
+      const elapsed = now2 - effect.startTime;
+      const progress = elapsed / effect.duration;
+      if (progress > 1) continue;
+
+      const ex = effect.x * sx;
+      const ey = effect.y * sy;
+      const esc = Math.min(sx, sy);
+      const alpha = (1 - progress) * 200;
+
+      if (effect.type === "laser") {
+        const laserWidth = (40 - progress * 20) * esc;
+        p.fill(255, 200, 50, alpha * 0.3);
+        p.noStroke();
+        p.rect(ex - laserWidth / 2, 0, laserWidth, ey);
+        p.fill(255, 255, 200, alpha * 0.6);
+        p.rect(ex - laserWidth / 4, 0, laserWidth / 2, ey);
+        p.fill(255, 255, 255, alpha * 0.8);
+        p.rect(ex - laserWidth / 8, 0, laserWidth / 4, ey);
+      } else if (effect.type === "slash") {
+        p.push();
+        p.translate(ex, ey);
+        const slashProgress = Math.min(1, progress * 3);
+        for (let i = 0; i < 4; i++) {
+          const angle = -0.6 + i * 0.4;
+          const slashAlpha = alpha * (1 - i * 0.2);
+          const slashLen = 60 * esc * slashProgress;
+          p.stroke(200, 255, 200, slashAlpha);
+          p.strokeWeight(4 * esc);
+          p.line(
+            Math.cos(angle) * 10 * esc, Math.sin(angle) * 10 * esc - 20 * esc,
+            Math.cos(angle) * slashLen, Math.sin(angle) * slashLen - 40 * esc
+          );
+          p.stroke(255, 255, 255, slashAlpha * 0.5);
+          p.strokeWeight(8 * esc);
+          p.line(
+            Math.cos(angle) * 15 * esc, Math.sin(angle) * 15 * esc - 20 * esc,
+            Math.cos(angle) * (slashLen - 10 * esc), Math.sin(angle) * (slashLen - 10 * esc) - 40 * esc
+          );
+        }
+        p.pop();
       }
     }
 
@@ -442,6 +552,102 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     else drawBossOni(bx, by, now);
   }
 
+  function drawMiniBoss(bx, by, now, mb) {
+    const sc = Math.min(sx, sy);
+    const r = mb.radius * sc;
+    const [cr, cg, cb] = mb.color;
+    const pulse = 1 + 0.1 * Math.sin(now * 0.0001 + mb.id);
+
+    p.noFill();
+    p.strokeWeight(2);
+    p.stroke(cr, cg, cb, 100 + 50 * Math.sin(now * 0.00008 + mb.id));
+    p.ellipse(bx, by, r * 4 * pulse);
+
+    p.noStroke();
+    p.fill(cr, cg, cb, 200);
+    p.ellipse(bx, by, r * 1.8, r * 2);
+
+    p.push();
+    p.translate(bx, by);
+    p.rotate(p.frameCount * 0.02 + mb.id);
+    p.fill(cr + 40, cg + 40, cb + 40, 60);
+    p.noStroke();
+    for (let i = 0; i < 6; i++) {
+      p.rotate(p.TWO_PI / 6);
+      p.ellipse(10 * sc, 0, 8 * sc, 12 * sc);
+    }
+    p.pop();
+
+    const corePulse = 1 + 0.08 * Math.sin(now * 0.00012 + mb.id);
+    p.fill(255, 200, 100, 220);
+    p.ellipse(bx, by, 14 * sc * corePulse);
+    p.fill(cr, cg, cb);
+    p.ellipse(bx, by, 8 * sc * corePulse);
+    p.fill(255, 255, 200);
+    p.ellipse(bx - 2 * sc, by - 2 * sc, 4 * sc);
+
+    p.noFill();
+    p.stroke(255, 255, 100, 180);
+    p.strokeWeight(1);
+    p.circle(bx, by, 8 * sc);
+  }
+
+  function drawMultiBossHP() {
+    const sc = Math.min(sx, sy);
+    const barW = 300 * sc;
+    const barH = 14 * sc;
+    const barX = p.width / 2 - barW / 2;
+    const barY = 40 * sc;
+
+    p.fill(0, 0, 0, 180);
+    p.noStroke();
+    p.rect(barX - 10 * sc, barY - 20 * sc, barW + 20 * sc, barH + 35 * sc, 6);
+
+    p.fill(255, 200, 100);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.textSize(11 * sc);
+    p.textFont('monospace');
+    p.text("TRINITY OF DESTRUCTION", p.width / 2, barY - 10 * sc);
+
+    p.fill(60, 20, 20);
+    p.rect(barX, barY, barW, barH, 4 * sc);
+
+    const hpRatio = boss.currentHealth / boss.maxHealth;
+    const gradient = p.lerpColor(p.color(240, 50, 50), p.color(200, 50, 200), 1 - hpRatio);
+    p.fill(gradient);
+    p.rect(barX, barY, barW * hpRatio, barH, 4 * sc);
+
+    p.fill(255, 255, 255, 40);
+    p.rect(barX, barY, barW * hpRatio, barH / 2, 4 * sc);
+
+    p.noFill();
+    p.stroke(255, 255, 255, 50);
+    p.strokeWeight(1);
+    p.rect(barX, barY, barW, barH, 4 * sc);
+
+    let segmentX = barX;
+    for (const mb of boss.bosses) {
+      const segW = (mb.hp / (boss.maxHealth / 3)) * (barW / 3);
+      const [cr, cg, cb] = mb.color;
+      if (mb.hp > 0) {
+        p.fill(cr, cg, cb, 180);
+        p.noStroke();
+        p.rect(segmentX, barY + barH + 3 * sc, segW, 4 * sc, 2);
+      } else {
+        p.fill(80, 80, 80, 100);
+        p.noStroke();
+        p.rect(segmentX, barY + barH + 3 * sc, barW / 3, 4 * sc, 2);
+      }
+      segmentX += barW / 3;
+    }
+
+    p.noStroke();
+    p.fill(255, 255, 255, 200);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.textSize(10 * sc);
+    p.text(`${boss.currentHealth} / ${boss.maxHealth}`, p.width / 2, barY + barH / 2);
+  }
+
   function drawBossFan(bx, by, now) {
     const sc = Math.min(sx, sy);
     const r = boss.radius * sc;
@@ -454,6 +660,10 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     p.stroke(cr, cg, cb, 80 + 40 * Math.sin(now * 0.00006));
     p.ellipse(bx, by, r * 5 * pulse);
 
+    // Body (elegant oval)
+    p.fill(cr, cg, cb, 200);
+    p.ellipse(bx, by, r * 2, r * 2.4);
+
     // Fan wings (folding fan array)
     p.noStroke();
     for (let i = -3; i <= 3; i++) {
@@ -463,10 +673,6 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
       p.arc(bx, by, fw * sc, 80 * sc, p.PI - i * 0.1 - 0.3, p.PI - i * 0.1 + 0.3);
       p.arc(bx, by, fw * sc, 80 * sc, -i * 0.1 - 0.3, -i * 0.1 + 0.3);
     }
-
-    // Body (elegant oval)
-    p.fill(cr, cg, cb, 200);
-    p.ellipse(bx, by, r * 2, r * 2.4);
 
     // Inner rotating petal pattern
     p.push(); p.translate(bx, by); p.rotate(p.frameCount * 0.015);
@@ -498,6 +704,12 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     p.stroke(cr, cg, cb, 80 + 40 * Math.sin(now * 0.00006));
     p.ellipse(bx, by, r * 5 * pulse);
 
+    // Body (crystal diamond)
+    p.fill(cr, cg, cb, 200);
+    p.push(); p.translate(bx, by); p.rotate(p.PI / 4);
+    p.rect(0, 0, r * 1.6, r * 1.6);
+    p.pop();
+
     // Hexagonal crystal outer ring
     p.push(); p.translate(bx, by); p.rotate(now * 0.0002);
     p.noFill(); p.stroke(cr, cg + 40, cb, 180); p.strokeWeight(2);
@@ -527,12 +739,6 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
         );
       }
     }
-
-    // Body (crystal diamond)
-    p.fill(cr, cg, cb, 200);
-    p.push(); p.translate(bx, by); p.rotate(p.PI / 4);
-    p.rect(0, 0, r * 1.6, r * 1.6);
-    p.pop();
 
     // Inner rotating diamond field
     p.push(); p.translate(bx, by); p.rotate(p.frameCount * 0.02);
@@ -564,6 +770,10 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     p.stroke(cr, cg, cb, 80 + 40 * Math.sin(now * 0.0001));
     p.ellipse(bx, by, r * 5.5 * pulse);
 
+    // Body (brutal circle)
+    p.fill(cr, cg * 0.5, cb * 0.5, 200);
+    p.ellipse(bx, by, r * 2.4, r * 2.2);
+
     // Jagged outer ring (fire ring)
     p.noFill(); p.strokeWeight(2);
     for (let i = 0; i < 12; i++) {
@@ -590,10 +800,6 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
       p.vertex(bx + side * 10 * sc, by - 5 * sc);
       p.endShape(p.CLOSE);
     }
-
-    // Body (brutal circle)
-    p.fill(cr, cg * 0.5, cb * 0.5, 200);
-    p.ellipse(bx, by, r * 2.4, r * 2.2);
 
     // Inner spinning fire ring
     p.push(); p.translate(bx, by); p.rotate(p.frameCount * 0.025);
@@ -796,7 +1002,7 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     const bx = backButton.x;
     const by = backButton.y + backButton.h + 10;
     const bw = 160;
-    const bh = 140;
+    const bh = 180;
 
     // Semi-transparent background
     p.fill(0, 0, 0, 160);
@@ -835,8 +1041,53 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     p.fill(255, 255, 255, 180);
     p.text(`Charge: ${sharedCharge}`, bx + pad, chargeY);
 
+    // Skill panel
+    const skillPanelY = chargeY + 18;
+    const skillNames = {
+      Reimu: "Shield Barrier",
+      Eirin: "Team Heal",
+      Marisa: "Master Spark",
+      Youmu: "Phantom Slash"
+    };
+    const skillCosts = { Reimu: 10, Eirin: 10, Marisa: 5, Youmu: 5 };
+    const skillCooldowns = { Reimu: 30000, Eirin: 30000, Marisa: 10000, Youmu: 0 };
+
+    const skillName = skillNames[playerClass] || "Skill";
+    const skillCost = skillCosts[playerClass] || 5;
+    const maxCooldown = skillCooldowns[playerClass] || 0;
+    const now3 = Date.now();
+    const remainingCD = Math.max(0, skillCooldownUntil - now3);
+    const cdRatio = maxCooldown > 0 ? remainingCD / maxCooldown : 0;
+
+    p.fill(40, 40, 60, 180);
+    p.rect(bx + pad, skillPanelY, bw - pad * 2, 32, 4);
+
+    if (cdRatio > 0) {
+      p.fill(100, 100, 150, 150);
+      p.rect(bx + pad, skillPanelY, (bw - pad * 2) * cdRatio, 32, 4);
+    }
+
+    p.fill(255, 255, 255, 200);
+    p.textSize(10);
+    p.textAlign(p.LEFT, p.TOP);
+    p.text(skillName, bx + pad + 4, skillPanelY + 4);
+
+    p.fill(200, 200, 100, 180);
+    p.textSize(9);
+    p.text(`${skillCost} charges`, bx + pad + 4, skillPanelY + 16);
+
+    if (cdRatio > 0) {
+      p.fill(255, 100, 100, 200);
+      p.textAlign(p.RIGHT, p.TOP);
+      p.text(`${Math.ceil(remainingCD / 1000)}s`, bx + bw - pad - 4, skillPanelY + 4);
+    } else {
+      p.fill(100, 255, 100, 200);
+      p.textAlign(p.RIGHT, p.TOP);
+      p.text("READY", bx + bw - pad - 4, skillPanelY + 4);
+    }
+
     // Action buttons (touch zones)
-    const btnY = by + pad + 70;
+    const btnY = skillPanelY + 38;
     const btnH = 18;
     const gap = 2;
 
@@ -850,13 +1101,13 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
 
     // Skill button (green)
     const skillY2 = btnY + btnH + gap;
-    p.fill(40, 140, 60, 180);
+    const skillReady = cdRatio === 0 && sharedCharge >= skillCost;
+    p.fill(skillReady ? 40 : 80, skillReady ? 140 : 80, skillReady ? 60 : 80, 180);
     p.rect(bx + pad, skillY2, bw - pad * 2, btnH, 3);
-    const skillReady = !usedAbility;
     p.fill(skillReady ? 200 : 100, skillReady ? 255 : 100, skillReady ? 200 : 100);
     p.textAlign(p.CENTER, p.CENTER);
     p.textSize(11);
-    p.text(`[X] ${usedAbility ? '--' : 'SKILL'}`, bx + bw / 2, skillY2 + btnH / 2);
+    p.text(`[X] ${!skillReady ? (cdRatio > 0 ? 'COOLDOWN' : 'NO CHARGE') : 'SKILL'}`, bx + bw / 2, skillY2 + btnH / 2);
 
     // Focus toggle (blue)
     const focusY2 = skillY2 + btnH + gap;
@@ -866,6 +1117,23 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     p.textAlign(p.CENTER, p.CENTER);
     p.textSize(11);
     p.text(`[Shift] Focus ${focusMode ? 'ON' : 'OFF'}`, bx + bw / 2, focusY2 + btnH / 2);
+
+    // Cheat indicators
+    const cheatY = focusY2 + btnH + gap + 4;
+    p.textAlign(p.LEFT, p.TOP);
+    p.textSize(9);
+    if (godMode) {
+      p.fill(255, 215, 0);
+      p.text("F1 GOD MODE", bx + pad, cheatY);
+    }
+    if (infiniteCharges) {
+      p.fill(0, 255, 255);
+      p.text("F2 INF CHARGES", bx + pad, cheatY + 12);
+    }
+    if (megaDamage) {
+      p.fill(255, 50, 50);
+      p.text("F3 100x DMG", bx + pad, cheatY + (infiniteCharges ? 24 : 12));
+    }
   }
 
   // --- Desktop keyboard (native listeners, robust against blur) ---
@@ -875,6 +1143,18 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     if ((e.key === 'z' || e.key === ' ') && now > bombCooldown) {
       socket.emit("bomb");
       bombCooldown = now + 500;
+    }
+    if (e.key === 'F1') {
+      godMode = !godMode;
+      socket.emit("cheat", { type: "godMode", enabled: godMode, roomCode });
+    }
+    if (e.key === 'F2') {
+      infiniteCharges = !infiniteCharges;
+      socket.emit("cheat", { type: "infiniteCharges", enabled: infiniteCharges, roomCode });
+    }
+    if (e.key === 'F3') {
+      megaDamage = !megaDamage;
+      socket.emit("cheat", { type: "megaDamage", enabled: megaDamage, roomCode });
     }
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
       e.preventDefault();
@@ -897,7 +1177,7 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
   const HUD_BOX_X = backButton.x;
   const HUD_BOX_Y = backButton.y + backButton.h + 10;
   const HUD_BOX_W = 160;
-  const HUD_BOX_H = 140;
+  const HUD_BOX_H = 180;
 
   p.touchStarted = () => {
     const touch = p.touches[0];
@@ -912,11 +1192,11 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     if (touch.x >= HUD_BOX_X && touch.x <= HUD_BOX_X + HUD_BOX_W &&
         touch.y >= HUD_BOX_Y && touch.y <= HUD_BOX_Y + HUD_BOX_H) {
       const relY = touch.y - HUD_BOX_Y;
-      if (relY > 106) {
+      if (relY > 156) {
         focusMode = !focusMode;
-      } else if (relY > 88) {
+      } else if (relY > 136) {
         socket.emit("useAbility", { className: playerClass, roomCode });
-      } else if (relY > 70) {
+      } else if (relY > 116) {
         socket.emit("bomb");
       }
       return false;

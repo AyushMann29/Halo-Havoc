@@ -6,7 +6,7 @@ const cors = require("cors");
 const app = express();
 const server = http.createServer(app);
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000').split(',');
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000').split(',').map(s => s.replace(/\/+$/, ''));
 
 const io = new Server(server, {
   cors: { origin: allowedOrigins, methods: ["GET", "POST"] }
@@ -43,6 +43,29 @@ const BOSS_TITLES = [
   "Oni Lord of the Crimson Abyss"
 ];
 
+const FAIRY_HP = 20;
+const FAIRY_SPEED = 2;
+const FAIRY_STOP_DISTANCE = 120;
+const FAIRY_SHOOT_INTERVAL = 1500;
+const FAIRY_LIFETIME = 15000;
+const FAIRY_CHARGE_REWARD = 5;
+const FAIRY_WAVE_INTERVAL = 20000;
+const FIRST_FAIRY_WAVE_DELAY = 5000;
+
+const SKILL_COOLDOWNS = {
+  Reimu: 30000,
+  Eirin: 30000,
+  Marisa: 10000,
+  Youmu: 0
+};
+
+const SKILL_COSTS = {
+  Reimu: 10,
+  Eirin: 10,
+  Marisa: 5,
+  Youmu: 5
+};
+
 const rooms = {};
 
 const playerStats = {
@@ -69,6 +92,52 @@ function getBossHP(playerCount) {
 function createBossState(bossIndex, playerCount) {
   const totalHP = getBossHP(playerCount);
   const hp = Math.floor(totalHP * BOSS_FRACTIONS[bossIndex]);
+  
+  if (bossIndex === 2) {
+    // Boss 3: Three mini-bosses with combined HP
+    const perBossHP = Math.floor(hp / 3);
+    return {
+      bosses: [
+        {
+          id: 0,
+          x: ARENA_W * 0.25,
+          y: BOSS_Y + 30,
+          radius: 35,
+          targetX: ARENA_W * 0.25,
+          pauseTimer: 0,
+          vx: 0,
+          color: [240, 50, 50],
+          hp: perBossHP
+        },
+        {
+          id: 1,
+          x: ARENA_W * 0.5,
+          y: BOSS_Y,
+          radius: 35,
+          targetX: ARENA_W * 0.5,
+          pauseTimer: 0,
+          vx: 0,
+          color: [240, 150, 50],
+          hp: perBossHP
+        },
+        {
+          id: 2,
+          x: ARENA_W * 0.75,
+          y: BOSS_Y + 30,
+          radius: 35,
+          targetX: ARENA_W * 0.75,
+          pauseTimer: 0,
+          vx: 0,
+          color: [200, 50, 200],
+          hp: perBossHP
+        }
+      ],
+      maxHealth: hp,
+      currentHealth: hp,
+      isMultiBoss: true
+    };
+  }
+  
   return {
     x: ARENA_W / 2,
     y: BOSS_Y,
@@ -77,8 +146,43 @@ function createBossState(bossIndex, playerCount) {
     currentHealth: hp,
     targetX: ARENA_W / 2,
     pauseTimer: 0,
-    vx: 0
+    vx: 0,
+    isMultiBoss: false
   };
+}
+
+function spawnFairyWave(room) {
+  const playerCount = Object.keys(room.players).length;
+  const numFairies = 2 * playerCount;
+  const now = Date.now();
+  const players = Object.values(room.players);
+  if (players.length === 0) return;
+
+  for (let i = 0; i < numFairies; i++) {
+    const edge = Math.floor(Math.random() * 3);
+    let x, y;
+    if (edge === 0) {
+      x = Math.random() * ARENA_W;
+      y = -20;
+    } else if (edge === 1) {
+      x = -20;
+      y = Math.random() * ARENA_H * 0.5;
+    } else {
+      x = ARENA_W + 20;
+      y = Math.random() * ARENA_H * 0.5;
+    }
+
+    const target = players[Math.floor(Math.random() * players.length)];
+    room.fairies.push({
+      id: `fairy_${now}_${i}`,
+      x, y,
+      hp: FAIRY_HP,
+      targetId: Object.keys(room.players)[players.indexOf(target)],
+      spawnTime: now,
+      lastShot: now,
+      vx: 0, vy: 0
+    });
+  }
 }
 
 function getPlayerList(room) {
@@ -118,7 +222,11 @@ io.on("connection", (socket) => {
       shield: null,
       gameEnded: false,
       transitionEndTime: 0,
-      nextBossIndex: 0
+      nextBossIndex: 0,
+      fairies: [],
+      fairyWaveTimer: 0,
+      skillEffects: [],
+      skillCooldowns: {}
     };
 
     const room = rooms[roomCode];
@@ -128,7 +236,8 @@ io.on("connection", (socket) => {
       health: stats.hp,
       maxHealth: stats.hp,
       invincibleUntil: 0,
-      grazeCooldown: 0
+      grazeCooldown: 0,
+      skillCooldownUntil: 0
     };
 
     socket.join(roomCode);
@@ -167,7 +276,8 @@ io.on("connection", (socket) => {
       health: stats.hp,
       maxHealth: stats.hp,
       invincibleUntil: 0,
-      grazeCooldown: 0
+      grazeCooldown: 0,
+      skillCooldownUntil: 0
     };
 
     socket.join(roomCode);
@@ -185,6 +295,7 @@ io.on("connection", (socket) => {
     room.bossIndex = 0;
     const playerCount = Object.keys(room.players).length;
     room.boss = createBossState(0, playerCount);
+    room.fairyWaveTimer = Date.now() + FIRST_FAIRY_WAVE_DELAY;
 
     io.to(socket.data.roomCode).emit("gameStarted", {
       boss: room.boss,
@@ -220,35 +331,66 @@ io.on("connection", (socket) => {
     const player = room?.players[socket.id];
     if (!player) return;
 
-    if (className === "Eirin" && room.sharedCharge >= 5) {
+    const now = Date.now();
+    const cost = SKILL_COSTS[className] || 5;
+    const cooldown = SKILL_COOLDOWNS[className] || 0;
+
+    if (room.sharedCharge < cost) return;
+    if (now < player.skillCooldownUntil) return;
+
+    room.sharedCharge -= cost;
+    player.skillCooldownUntil = now + cooldown;
+
+    if (className === "Eirin") {
       for (const id in room.players) {
         const p = room.players[id];
         if (p.health < p.maxHealth) p.health++;
       }
-      room.sharedCharge -= 5;
     }
 
-    if (className === "Reimu" && room.sharedCharge >= 3) {
-      room.shield = { x: player.x, y: player.y, radius: 80, expires: Date.now() + 5000 };
-      room.sharedCharge -= 3;
+    if (className === "Reimu") {
+      room.shield = { x: player.x, y: player.y, radius: 80, expires: now + 5000 };
     }
 
-    if (className === "Youmu" && room.sharedCharge >= 4) {
-      room.bullets.push({
-        x: player.x, y: player.y, vx: 0, vy: -12,
-        lifespan: 200, id: socket.id, special: "sniper"
-      });
-      room.sharedCharge -= 4;
-    }
-
-    if (className === "Marisa" && room.sharedCharge >= 4) {
-      for (let i = -1; i <= 1; i++) {
+    if (className === "Youmu") {
+      const slashAngles = [-0.4, -0.15, 0.15, 0.4];
+      for (const angle of slashAngles) {
         room.bullets.push({
-          x: player.x, y: player.y, vx: i * 0.5, vy: -12,
-          lifespan: 200, id: socket.id, special: "assault"
+          x: player.x, y: player.y,
+          vx: Math.sin(angle) * 8, vy: -10,
+          lifespan: 30, id: socket.id, special: "slash"
         });
       }
-      room.sharedCharge -= 4;
+      room.skillEffects.push({
+        type: "slash",
+        x: player.x, y: player.y,
+        playerId: socket.id,
+        startTime: now,
+        duration: 1500
+      });
+    }
+
+    if (className === "Marisa") {
+      const targets = Object.values(room.players);
+      let targetX = player.x;
+      if (targets.length > 0) {
+        const t = targets[Math.floor(Math.random() * targets.length)];
+        targetX = t.x;
+      }
+      room.bullets.push({
+        x: player.x, y: player.y,
+        vx: 0, vy: -20,
+        lifespan: 60, id: socket.id, special: "laser",
+        damage: 100, targetX: targetX
+      });
+      room.skillEffects.push({
+        type: "laser",
+        x: player.x, y: player.y,
+        targetX: targetX,
+        playerId: socket.id,
+        startTime: now,
+        duration: 1500
+      });
     }
   });
 
@@ -262,6 +404,26 @@ io.on("connection", (socket) => {
       room.players[id].invincibleUntil = now + 1000;
     }
     io.to(socket.data.roomCode).emit("bombDetonated");
+  });
+
+  socket.on("cheat", ({ type, enabled }) => {
+    const room = rooms[socket.data.roomCode];
+    if (!room) return;
+    const player = room.players[socket.id];
+    if (!player) return;
+
+    if (type === "godMode") {
+      player.cheats = player.cheats || {};
+      player.cheats.godMode = enabled;
+    }
+    if (type === "infiniteCharges") {
+      player.cheats = player.cheats || {};
+      player.cheats.infiniteCharges = enabled;
+    }
+    if (type === "megaDamage") {
+      player.cheats = player.cheats || {};
+      player.cheats.megaDamage = enabled;
+    }
   });
 
   socket.on("disconnect", () => {
@@ -300,6 +462,26 @@ setInterval(() => {
     const boss = room.boss;
     const playerCount = Object.keys(room.players).length;
 
+    // Transition: pause all game logic, wait for timer
+    if (room.transitionEndTime > 0) {
+      if (now >= room.transitionEndTime) {
+        room.bossIndex = room.nextBossIndex;
+        room.boss = createBossState(room.bossIndex, playerCount);
+        room.transitionEndTime = 0;
+        room.nextBossIndex = 0;
+        for (const id in room.players) {
+          room.players[id].invincibleUntil = now + 2000;
+        }
+        io.to(roomCode).emit("bossSpawned", {
+          boss: room.boss,
+          bossIndex: room.bossIndex,
+          bossName: BOSS_NAMES[room.bossIndex],
+          bossTitle: BOSS_TITLES[room.bossIndex]
+        });
+      }
+      continue;
+    }
+
     if (boss.currentHealth <= 0) {
       const nextIndex = room.bossIndex + 1;
       if (nextIndex >= 3) {
@@ -323,61 +505,150 @@ setInterval(() => {
       continue;
     }
 
-    // Transition: pause all game logic, wait for timer
-    if (room.transitionEndTime > 0) {
-      if (now >= room.transitionEndTime) {
-        room.bossIndex = room.nextBossIndex;
-        room.boss = createBossState(room.bossIndex, playerCount);
-        room.transitionEndTime = 0;
-        room.nextBossIndex = 0;
-        for (const id in room.players) {
-          room.players[id].invincibleUntil = now + 2000;
-        }
-        io.to(roomCode).emit("bossSpawned", {
-          boss: room.boss,
-          bossIndex: room.bossIndex,
-          bossName: BOSS_NAMES[room.bossIndex],
-          bossTitle: BOSS_TITLES[room.bossIndex]
-        });
-      }
-      continue;
-    }
-
     if (room.shield && now > room.shield.expires) room.shield = null;
+
+    // Infinite charges cheat
+    const hasInfiniteCharges = Object.values(room.players).some(p => p.cheats && p.cheats.infiniteCharges);
+    if (hasInfiniteCharges) {
+      room.sharedCharge = 999;
+    }
 
     const bossMul = 1 + room.bossIndex * 0.3;
 
     // Boss horizontal patrol (faster per index)
-    if (boss.pauseTimer > 0) {
-      boss.pauseTimer--;
+    if (boss.isMultiBoss) {
+      for (const mb of boss.bosses) {
+        if (mb.hp <= 0) continue;
+        if (mb.pauseTimer > 0) {
+          mb.pauseTimer--;
+        } else {
+          const dx = mb.targetX - mb.x;
+          if (Math.abs(dx) < 2) {
+            mb.targetX = Math.random() * (ARENA_W - 100) + 50;
+            mb.pauseTimer = Math.floor(Math.random() * 30) + 10;
+            mb.vx = 0;
+          } else {
+            const speedMul = 1.5;
+            const speed = (1.2 + Math.random() * 0.8) * bossMul * speedMul;
+            mb.vx = Math.sign(dx) * Math.min(speed, Math.abs(dx) * 0.12);
+            mb.x += mb.vx;
+          }
+        }
+      }
     } else {
-      const dx = boss.targetX - boss.x;
-      if (Math.abs(dx) < 2) {
-        boss.targetX = Math.random() * (ARENA_W - 100) + 50;
-        boss.pauseTimer = Math.floor(Math.random() * 30) + 10;
-        boss.vx = 0;
+      if (boss.pauseTimer > 0) {
+        boss.pauseTimer--;
       } else {
-        const speedMul = 1 + room.bossIndex * 0.4;
-        const speed = (0.8 + Math.random() * 0.5) * bossMul * speedMul;
-        boss.vx = Math.sign(dx) * Math.min(speed, Math.abs(dx) * 0.1);
-        boss.x += boss.vx;
+        const dx = boss.targetX - boss.x;
+        if (Math.abs(dx) < 2) {
+          boss.targetX = Math.random() * (ARENA_W - 100) + 50;
+          boss.pauseTimer = Math.floor(Math.random() * 30) + 10;
+          boss.vx = 0;
+        } else {
+          const speedMul = 1 + room.bossIndex * 0.4;
+          const speed = (0.8 + Math.random() * 0.5) * bossMul * speedMul;
+          boss.vx = Math.sign(dx) * Math.min(speed, Math.abs(dx) * 0.1);
+          boss.x += boss.vx;
+        }
       }
     }
 
-    // Move player bullets + boss collision
+    // Move player bullets + fairy/boss collision
     room.bullets.forEach(b => { b.x += b.vx; b.y += b.vy; b.lifespan--; });
     room.bullets = room.bullets.filter(b => {
-      const dx = b.x - boss.x;
-      const dy = b.y - boss.y;
-      if (Math.sqrt(dx * dx + dy * dy) < boss.radius) {
-        boss.currentHealth = Math.max(0, boss.currentHealth - 10);
-        return false;
+      if (b.special === "laser") {
+        for (let i = room.fairies.length - 1; i >= 0; i--) {
+          const fairy = room.fairies[i];
+          const dx = b.x - fairy.x;
+          const dy = b.y - fairy.y;
+          if (Math.abs(dx) < 30 && dy < 0 && dy > -ARENA_H) {
+            fairy.hp -= b.damage || 100;
+            if (fairy.hp <= 0) {
+              room.sharedCharge += FAIRY_CHARGE_REWARD;
+              room.fairies.splice(i, 1);
+            }
+          }
+        }
+      } else {
+        for (let i = room.fairies.length - 1; i >= 0; i--) {
+          const fairy = room.fairies[i];
+          const dx = b.x - fairy.x;
+          const dy = b.y - fairy.y;
+          if (Math.sqrt(dx * dx + dy * dy) < 20) {
+            const shooter = room.players[b.id];
+            const damage = (shooter && shooter.cheats && shooter.cheats.megaDamage) ? 1000 : 10;
+            fairy.hp -= damage;
+            if (fairy.hp <= 0) {
+              room.sharedCharge += FAIRY_CHARGE_REWARD;
+              room.fairies.splice(i, 1);
+            }
+            return false;
+          }
+        }
+      }
+
+      const shooter = room.players[b.id];
+      const damage = (shooter && shooter.cheats && shooter.cheats.megaDamage) ? 1000 : 10;
+
+      if (boss.isMultiBoss) {
+        for (const mb of boss.bosses) {
+          if (mb.hp <= 0) continue;
+          const dxB = b.x - mb.x;
+          const dyB = b.y - mb.y;
+          if (Math.sqrt(dxB * dxB + dyB * dyB) < mb.radius) {
+            mb.hp = Math.max(0, mb.hp - damage);
+            boss.currentHealth = boss.bosses.reduce((sum, m) => sum + (m.hp > 0 ? m.hp : 0), 0);
+            return false;
+          }
+        }
+      } else {
+        const dxB = b.x - boss.x;
+        const dyB = b.y - boss.y;
+        if (Math.sqrt(dxB * dxB + dyB * dyB) < boss.radius) {
+          boss.currentHealth = Math.max(0, boss.currentHealth - damage);
+          return false;
+        }
       }
       return b.lifespan > 0 && b.x > -200 && b.x < ARENA_W + 200 && b.y > -200 && b.y < ARENA_H + 200;
     });
 
     // Spawn enemy bullets (unique patterns per boss)
-    if (Math.random() < 0.06) {
+    if (boss.isMultiBoss) {
+      for (const mb of boss.bosses) {
+        if (mb.hp <= 0) continue;
+        if (Math.random() < 0.08) {
+          const targets = Object.values(room.players).filter(pl => pl.health > 0);
+          if (targets.length > 0) {
+            const t = targets[Math.floor(Math.random() * targets.length)];
+            const a = Math.atan2(t.y - mb.y, t.x - mb.x);
+            for (let i = -2; i <= 2; i++) {
+              const s = 3.5 + Math.random() * 3;
+              room.enemyBullets.push({
+                x: mb.x, y: mb.y,
+                vx: Math.cos(a + i * 0.15) * s,
+                vy: Math.sin(a + i * 0.15) * s,
+                lifespan: 250,
+                size: 5 + Math.random() * 3
+              });
+            }
+          }
+          if (Math.random() < 0.4) {
+            const spiralAngle = now * 0.004 + mb.id * 2;
+            for (let arm = 0; arm < 4; arm++) {
+              const angle = spiralAngle + arm * Math.PI / 2;
+              const speed = 3 + Math.random() * 2;
+              room.enemyBullets.push({
+                x: mb.x, y: mb.y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                lifespan: 300,
+                size: 6
+              });
+            }
+          }
+        }
+      }
+    } else if (Math.random() < 0.06) {
       const bossIdx = room.bossIndex;
       if (bossIdx === 0) {
         // Fan Spread: sweeping arc that rotates
@@ -387,7 +658,7 @@ setInterval(() => {
         const numBullets = 6 + Math.floor(Math.random() * 3);
         for (let i = 0; i < numBullets; i++) {
           const angle = baseAngle + (i / (numBullets - 1) - 0.5) * spread;
-          const speed = 1.5 + Math.random() * 1.5;
+          const speed = 2.5 + Math.random() * 2.5;
           room.enemyBullets.push({
             x: boss.x, y: boss.y,
             vx: Math.cos(angle) * speed,
@@ -402,7 +673,7 @@ setInterval(() => {
             const t = targets[Math.floor(Math.random() * targets.length)];
             const a = Math.atan2(t.y - boss.y, t.x - boss.x);
             for (let i = -2; i <= 2; i++) {
-              const s = 2 + Math.random() * 1.5;
+              const s = 3.5 + Math.random() * 2.5;
               room.enemyBullets.push({
                 x: boss.x, y: boss.y,
                 vx: Math.cos(a + i * 0.12) * s,
@@ -420,7 +691,7 @@ setInterval(() => {
           const baseAngle = now * 0.001 + r * Math.PI / 6;
           for (let i = 0; i < 6; i++) {
             const angle = baseAngle + i * Math.PI / 3;
-            const speed = 1.5 + r * 0.8;
+            const speed = 2.5 + r * 1.5;
             room.enemyBullets.push({
               x: boss.x, y: boss.y,
               vx: Math.cos(angle) * speed,
@@ -436,7 +707,7 @@ setInterval(() => {
             const t = targets[Math.floor(Math.random() * targets.length)];
             const a = Math.atan2(t.y - boss.y, t.x - boss.x);
             for (let i = -1; i <= 1; i++) {
-              const s = 2.5;
+              const s = 4.5;
               room.enemyBullets.push({
                 x: boss.x, y: boss.y,
                 vx: Math.cos(a + i * 0.1) * s,
@@ -446,33 +717,6 @@ setInterval(() => {
               });
             }
           }
-        }
-      } else {
-        // Hell Wheel: triple spiral + bouncing bullets
-        const spiralAngle = now * 0.003;
-        const arms = 3;
-        for (let a = 0; a < arms; a++) {
-          const angle = spiralAngle + a * Math.PI * 2 / arms;
-          const speed = 2 + Math.random() * 2;
-          room.enemyBullets.push({
-            x: boss.x, y: boss.y,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            lifespan: 250,
-            size: 6 + Math.random() * 3
-          });
-        }
-        if (Math.random() < 0.3) {
-          const angle = Math.random() * Math.PI * 2;
-          const speed = 3 + Math.random() * 2;
-          room.enemyBullets.push({
-            x: boss.x, y: boss.y,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            lifespan: 400,
-            size: 5,
-            bounce: true
-          });
         }
       }
     }
@@ -503,13 +747,61 @@ setInterval(() => {
           room.sharedCharge++;
         }
 
-        if (dist < hitDist && now > p.invincibleUntil && !insideShield && p.health > 0) {
+        if (dist < hitDist && now > p.invincibleUntil && !insideShield && p.health > 0 && !(p.cheats && p.cheats.godMode)) {
           p.health--;
           p.invincibleUntil = now + 2000;
         }
       }
     });
     room.enemyBullets = room.enemyBullets.filter(b => b.lifespan > 0);
+
+    // Fairy wave spawning
+    if (room.fairyWaveTimer > 0 && now >= room.fairyWaveTimer) {
+      spawnFairyWave(room);
+      room.fairyWaveTimer = now + FAIRY_WAVE_INTERVAL;
+    }
+
+    // Fairy logic: movement, shooting, collision
+    for (const fairy of room.fairies) {
+      const target = room.players[fairy.targetId];
+      if (!target || target.health <= 0) {
+        const alivePlayers = Object.entries(room.players).filter(([, p]) => p.health > 0);
+        if (alivePlayers.length > 0) {
+          fairy.targetId = alivePlayers[Math.floor(Math.random() * alivePlayers.length)][0];
+        }
+        continue;
+      }
+
+      const dx = target.x - fairy.x;
+      const dy = target.y - fairy.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist > FAIRY_STOP_DISTANCE) {
+        fairy.x += (dx / dist) * FAIRY_SPEED;
+        fairy.y += (dy / dist) * FAIRY_SPEED;
+      }
+
+      if (now - fairy.lastShot > FAIRY_SHOOT_INTERVAL) {
+        const angle = Math.atan2(dy, dx);
+        for (let i = -1; i <= 1; i++) {
+          room.enemyBullets.push({
+            x: fairy.x, y: fairy.y,
+            vx: Math.cos(angle + i * 0.2) * 2.5,
+            vy: Math.sin(angle + i * 0.2) * 2.5,
+            lifespan: 200,
+            size: 5,
+            fromFairy: true
+          });
+        }
+        fairy.lastShot = now;
+      }
+    }
+
+    // Remove expired fairies
+    room.fairies = room.fairies.filter(f => now - f.spawnTime < FAIRY_LIFETIME);
+
+    // Clean up expired skill effects
+    room.skillEffects = room.skillEffects.filter(e => now - e.startTime < e.duration);
 
     io.to(roomCode).emit("stateUpdate", {
       players: room.players,
@@ -520,7 +812,9 @@ setInterval(() => {
       bossName: BOSS_NAMES[room.bossIndex],
       bossTitle: BOSS_TITLES[room.bossIndex],
       sharedCharge: room.sharedCharge,
-      shield: room.shield
+      shield: room.shield,
+      fairies: room.fairies,
+      skillEffects: room.skillEffects
     });
   }
 }, 50);

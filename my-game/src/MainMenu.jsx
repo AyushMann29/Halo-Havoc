@@ -11,7 +11,7 @@ const CLASSES = [
     hp: 10,
     speed: 2,
     damage: 2,
-    skill: 'Shield Barrier - 3 charges',
+    skill: 'Shield Barrier - 10 charges, 30s CD',
     skillDescription: 'Create a protective barrier that blocks all bullets'
   },
   {
@@ -22,8 +22,8 @@ const CLASSES = [
     hp: 5,
     speed: 4,
     damage: 4,
-    skill: 'Triple Spark - 4 charges',
-    skillDescription: 'Fire three projectiles in a spread pattern'
+    skill: 'Master Spark - 5 charges, 10s CD',
+    skillDescription: 'Fire a massive laser beam dealing 100 damage'
   },
   {
     name: 'Eirin',
@@ -33,8 +33,8 @@ const CLASSES = [
     hp: 4,
     speed: 3,
     damage: 3,
-    skill: 'Lunar Healing - 5 charges',
-    skillDescription: 'Restore health to all nearby teammates'
+    skill: 'Team Heal - 10 charges, 30s CD',
+    skillDescription: 'Restore 1 HP to all teammates'
   },
   {
     name: 'Youmu',
@@ -44,8 +44,8 @@ const CLASSES = [
     hp: 3,
     speed: 5,
     damage: 5,
-    skill: 'Slash of Eternity - 4 charges',
-    skillDescription: 'Fire a high-damage piercing sword slash'
+    skill: 'Phantom Slash - 5 charges, no CD',
+    skillDescription: 'Unleash 4 diagonal slashes dealing 10 damage each'
   },
 ];
 
@@ -101,6 +101,7 @@ function FloatingOrbs() {
 
 export default function MainMenu({ selectedClass, onSelectClass, onHost, onJoin }) {
   const [showRotatePrompt, setShowRotatePrompt] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   useEffect(() => {
     document.title = 'Halo Havoc';
@@ -305,7 +306,7 @@ export default function MainMenu({ selectedClass, onSelectClass, onHost, onJoin 
             )}
 
             {/* Host / Join buttons */}
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '1rem' }}>
               <motion.button
                 onClick={onHost}
                 disabled={!selectedClass}
@@ -340,6 +341,23 @@ export default function MainMenu({ selectedClass, onSelectClass, onHost, onJoin 
                 Join Game
               </motion.button>
             </div>
+
+            {/* How to Play button */}
+            <motion.button
+              onClick={() => setShowHowToPlay(true)}
+              whileHover={{ scale: 1.05 }}
+              style={{
+                padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 600,
+                background: 'rgba(100,200,255,0.1)',
+                color: '#64c8ff',
+                border: '1px solid rgba(100,200,255,0.3)',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              How to Play
+            </motion.button>
           </motion.div>
 
           <motion.footer
@@ -355,6 +373,127 @@ export default function MainMenu({ selectedClass, onSelectClass, onHost, onJoin 
               onMouseLeave={(e) => e.target.style.color = '#00ffaa88'}
             >GitHub</a>
           </motion.footer>
+
+          {/* How to Play Modal */}
+          {showHowToPlay && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowHowToPlay(false)}
+              style={{
+                position: 'fixed', inset: 0, zIndex: 1000,
+                background: 'rgba(0,0,0,0.85)',
+                display: 'flex', justifyContent: 'center', alignItems: 'center',
+                padding: '2rem',
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  background: 'linear-gradient(135deg, #0a0f14, #0d1b1a)',
+                  border: '1px solid rgba(0,255,136,0.2)',
+                  borderRadius: '16px',
+                  padding: '2rem',
+                  maxWidth: '700px',
+                  maxHeight: '80vh',
+                  overflow: 'auto',
+                  boxShadow: '0 8px 40px rgba(0,255,136,0.1)',
+                }}
+              >
+                <h2 style={{ color: '#00ffaa', fontSize: '1.8rem', marginBottom: '1.5rem', textAlign: 'center', fontFamily: 'Orbitron, system-ui, sans-serif' }}>
+                  How to Play
+                </h2>
+
+                {/* Movement */}
+                <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '10px' }}>
+                  <h3 style={{ color: '#00ffaa', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Movement</h3>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '0.3rem' }}>
+                      <div style={{ width: '30px', height: '30px', background: 'rgba(0,255,136,0.2)', border: '1px solid #00ffaa', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#00ffaa', fontFamily: 'monospace', fontWeight: 700 }}>W</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.3rem' }}>
+                      <div style={{ width: '30px', height: '30px', background: 'rgba(0,255,136,0.2)', border: '1px solid #00ffaa', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#00ffaa', fontFamily: 'monospace', fontWeight: 700 }}>A</div>
+                      <div style={{ width: '30px', height: '30px', background: 'rgba(0,255,136,0.2)', border: '1px solid #00ffaa', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#00ffaa', fontFamily: 'monospace', fontWeight: 700 }}>S</div>
+                      <div style={{ width: '30px', height: '30px', background: 'rgba(0,255,136,0.2)', border: '1px solid #00ffaa', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#00ffaa', fontFamily: 'monospace', fontWeight: 700 }}>D</div>
+                    </div>
+                    <span style={{ color: '#aab', fontSize: '0.9rem' }}>or Arrow Keys to move</span>
+                  </div>
+                </div>
+
+                {/* Charges */}
+                <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '10px' }}>
+                  <h3 style={{ color: '#ffdd44', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Charges</h3>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ position: 'relative', width: '60px', height: '60px' }}>
+                      <div style={{ position: 'absolute', inset: 0, border: '2px solid #ff4444', borderRadius: '50%', opacity: 0.5 }} />
+                      <div style={{ position: 'absolute', inset: '8px', border: '2px dashed #ffdd44', borderRadius: '50%' }} />
+                      <div style={{ position: 'absolute', inset: '22px', background: '#fff', borderRadius: '50%' }} />
+                    </div>
+                    <div style={{ color: '#aab', fontSize: '0.9rem', maxWidth: '400px' }}>
+                      Get dangerously close to enemy bullets to <span style={{ color: '#ffdd44', fontWeight: 600 }}>graze</span> them. Each graze gives +1 charge. Use charges for skills and bombs!
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bomb */}
+                <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '10px' }}>
+                  <h3 style={{ color: '#ff6b6b', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Bomb (30 charges)</h3>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ width: '40px', height: '40px', background: 'rgba(255,100,100,0.3)', border: '2px solid #ff6b6b', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff6b6b', fontFamily: 'monospace', fontWeight: 700, fontSize: '1.2rem' }}>Z</div>
+                    <span style={{ color: '#aab', fontSize: '0.9rem' }}>Clears all bullets and grants brief invincibility</span>
+                  </div>
+                </div>
+
+                {/* Skill */}
+                <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '10px' }}>
+                  <h3 style={{ color: '#00ffaa', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Skill</h3>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ width: '40px', height: '40px', background: 'rgba(0,255,136,0.2)', border: '2px solid #00ffaa', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#00ffaa', fontFamily: 'monospace', fontWeight: 700, fontSize: '1.2rem' }}>X</div>
+                    <span style={{ color: '#aab', fontSize: '0.9rem' }}>Each character has a unique skill. Check the skill panel in-game for details!</span>
+                  </div>
+                </div>
+
+                {/* Focus */}
+                <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '10px' }}>
+                  <h3 style={{ color: '#64c8ff', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Focus Mode</h3>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ width: '60px', height: '30px', background: 'rgba(100,200,255,0.2)', border: '2px solid #64c8ff', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64c8ff', fontFamily: 'monospace', fontWeight: 700, fontSize: '0.8rem' }}>Shift</div>
+                    <span style={{ color: '#aab', fontSize: '0.9rem' }}>Slows movement and reveals your precise hitbox for tight dodging</span>
+                  </div>
+                </div>
+
+                {/* Objective */}
+                <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '10px' }}>
+                  <h3 style={{ color: '#fff', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Objective</h3>
+                  <p style={{ color: '#aab', fontSize: '0.9rem', margin: 0 }}>
+                    Defeat all 3 boss phases to win! Work together with your team to dodge bullets, graze for charges, and unleash your skills.
+                  </p>
+                </div>
+
+                <motion.button
+                  onClick={() => setShowHowToPlay(false)}
+                  whileHover={{ scale: 1.05 }}
+                  style={{
+                    marginTop: '1.5rem',
+                    padding: '0.7rem 2rem',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    background: 'linear-gradient(135deg, #00ffaa, #00dd88)',
+                    color: '#0a0a0a',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    width: '100%',
+                  }}
+                >
+                  Got it!
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          )}
         </>
       )}
     </div>
