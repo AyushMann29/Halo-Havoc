@@ -141,15 +141,132 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     });
 
     socket.on("stateUpdate", (state) => {
-      players = state.players;
-      bullets = state.bullets || [];
-      enemyBullets = state.enemyBullets || [];
-      boss = state.boss || boss;
-      if (state.bossIndex !== undefined) boss.bossIndex = state.bossIndex;
-      sharedCharge = state.sharedCharge || 0;
-      shield = state.shield || null;
-      fairies = state.fairies || [];
-      skillEffects = state.skillEffects || [];
+      if (!Array.isArray(state)) return;
+
+      // 1. Unpack Players (Delta Compression)
+      const packedPlayers = state[0] || [];
+      const removedPlayers = state[8] || [];
+
+      // Remove disconnected players
+      for (const id of removedPlayers) {
+        delete players[id];
+      }
+
+      // Merge / update player states
+      for (const p of packedPlayers) {
+        const [id, x, y, className, health, maxHealth, invincibleUntil, grazeCooldown, skillCooldownUntil] = p;
+        players[id] = {
+          x,
+          y,
+          className,
+          health,
+          maxHealth,
+          invincibleUntil,
+          grazeCooldown,
+          skillCooldownUntil
+        };
+      }
+
+      // 2. Unpack Player Bullets
+      const packedBullets = state[1] || [];
+      bullets = packedBullets.map(b => {
+        const [bx, by, specialType, bvx, bvy, btargetX, bid, blifespan] = b;
+        let special = null;
+        if (specialType === 1) special = "slash";
+        else if (specialType === 2) special = "laser";
+        return {
+          x: bx,
+          y: by,
+          special,
+          vx: bvx,
+          vy: bvy,
+          targetX: btargetX,
+          id: bid,
+          lifespan: blifespan
+        };
+      });
+
+      // 3. Unpack Enemy Bullets
+      const packedEnemyBullets = state[2] || [];
+      enemyBullets = packedEnemyBullets.map(eb => {
+        const [ebx, eby, ebsize] = eb;
+        return { x: ebx, y: eby, size: ebsize };
+      });
+
+      // 4. Unpack Boss
+      const packedBoss = state[3];
+      if (packedBoss) {
+        const bossType = packedBoss[0];
+        if (bossType === 0) {
+          const [, bx, by, bradius, bcurrHp, bmaxHp, bidx] = packedBoss;
+          boss = {
+            isMultiBoss: false,
+            x: bx,
+            y: by,
+            radius: bradius,
+            currentHealth: bcurrHp,
+            maxHealth: bmaxHp,
+            bossIndex: bidx
+          };
+        } else if (bossType === 1) {
+          const [, bossesArr, bcurrHp, bmaxHp, bidx] = packedBoss;
+          const unpackedBosses = bossesArr.map(mb => {
+            const [mbId, mbX, mbY, mbRadius, mbColor, mbHp] = mb;
+            return {
+              id: mbId,
+              x: mbX,
+              y: mbY,
+              radius: mbRadius,
+              color: mbColor,
+              hp: mbHp
+            };
+          });
+          boss = {
+            isMultiBoss: true,
+            bosses: unpackedBosses,
+            currentHealth: bcurrHp,
+            maxHealth: bmaxHp,
+            bossIndex: bidx
+          };
+        }
+      }
+
+      // 5. Shared Charge
+      sharedCharge = state[4] || 0;
+
+      // 6. Shield
+      const packedShield = state[5];
+      if (packedShield) {
+        const [shxVal, shyVal, sradius, sexpires] = packedShield;
+        shield = { x: shxVal, y: shyVal, radius: sradius, expires: sexpires };
+      } else {
+        shield = null;
+      }
+
+      // 7. Fairies
+      const packedFairies = state[6] || [];
+      fairies = packedFairies.map(f => {
+        const [fid, fx, fy, fhp] = f;
+        return { id: fid, x: fx, y: fy, hp: fhp };
+      });
+
+      // 8. Skill Effects
+      const packedSkillEffects = state[7] || [];
+      skillEffects = packedSkillEffects.map(se => {
+        const [typeNum, sex, sey, setargetX, seplayerId, seTime, seDuration] = se;
+        let type = null;
+        if (typeNum === 1) type = "laser";
+        else if (typeNum === 2) type = "slash";
+        return {
+          type,
+          x: sex,
+          y: sey,
+          targetX: setargetX,
+          playerId: seplayerId,
+          startTime: seTime,
+          duration: seDuration
+        };
+      });
 
       if (players[myId] && players[myId].skillCooldownUntil) {
         skillCooldownUntil = players[myId].skillCooldownUntil;
