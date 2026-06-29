@@ -17,6 +17,7 @@ export default function App() {
   const [hostId, setHostId] = useState('');
   const [lobbyPlayers, setLobbyPlayers] = useState([]);
   const [gameOverState, setGameOverState] = useState(null);
+  const [initialGameState, setInitialGameState] = useState(null);
   const sketchRef = useRef(null);
   const p5Instance = useRef(null);
 
@@ -31,6 +32,7 @@ export default function App() {
     setHostId('');
     setLobbyPlayers([]);
     setGameOverState(null);
+    setInitialGameState(null);
   }, []);
 
   useEffect(() => {
@@ -56,7 +58,8 @@ export default function App() {
       setLobbyPlayers(players);
     });
 
-    socket.on('gameStarted', () => {
+    socket.on('gameStarted', (state) => {
+      setInitialGameState(state);
       setScreen('game');
     });
 
@@ -75,9 +78,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (screen === 'game' && !p5Instance.current) {
+    if (screen === 'game' && !p5Instance.current && initialGameState) {
       try {
-        p5Instance.current = new p5(sketch(socket, selectedClass, roomCode), sketchRef.current);
+        p5Instance.current = new p5(sketch(socket, selectedClass, roomCode, initialGameState), sketchRef.current);
       } catch (error) {
         setScreen('menu');
       }
@@ -89,7 +92,7 @@ export default function App() {
         p5Instance.current = null;
       }
     };
-  }, [screen, selectedClass, roomCode]);
+  }, [screen, selectedClass, roomCode, initialGameState]);
 
   if (screen === 'menu') {
     return (

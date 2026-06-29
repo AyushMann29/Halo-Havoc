@@ -1,11 +1,14 @@
-export const sketch = (socket, playerClass, roomCode) => (p) => {
-  let players = {};
-  let myId = null;
-  let bullets = [];
-  let enemyBullets = [];
-  let boss = { x: 0, y: 0, radius: 50, currentHealth: 0, maxHealth: 0 };
-  let sharedCharge = 0;
-  let shield = null;
+export const sketch = (socket, playerClass, roomCode, initialGameState) => (p) => {
+  let players = initialGameState?.players || {};
+  let myId = socket.id || null;
+  let bullets = initialGameState?.bullets || [];
+  let enemyBullets = initialGameState?.enemyBullets || [];
+  let boss = initialGameState?.boss || { x: 0, y: 0, radius: 50, currentHealth: 0, maxHealth: 0 };
+  if (initialGameState && initialGameState.bossIndex !== undefined) {
+    boss.bossIndex = initialGameState.bossIndex;
+  }
+  let sharedCharge = initialGameState?.sharedCharge || 0;
+  let shield = initialGameState?.shield || null;
   let gameOver = false;
   let outcome = "";
   let usedAbility = false;
@@ -24,8 +27,8 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
   const PLAYER_SPEED = 4;
   const PLAYER_HURTBOX = 4;
 
-  let myX = ARENA_W / 2;
-  let myY = ARENA_H * 0.8;
+  let myX = (myId && players[myId]) ? players[myId].x : ARENA_W / 2;
+  let myY = (myId && players[myId]) ? players[myId].y : ARENA_H * 0.8;
   let sx = 1, sy = 1;
 
   let focusMode = false;
@@ -110,9 +113,22 @@ export const sketch = (socket, playerClass, roomCode) => (p) => {
     p.createCanvas(p.windowWidth, p.windowHeight);
     sx = p.width / ARENA_W;
     sy = p.height / ARENA_H;
-    if (socket.connected) myId = socket.id;
+    
+    if (socket.connected) {
+      myId = socket.id;
+      if (players[myId]) {
+        myX = players[myId].x;
+        myY = players[myId].y;
+      }
+    }
 
-    socket.on("connect", () => { myId = socket.id; });
+    socket.on("connect", () => {
+      myId = socket.id;
+      if (players[myId]) {
+        myX = players[myId].x;
+        myY = players[myId].y;
+      }
+    });
 
     socket.on("gameStarted", (state) => {
       players = state.players;
