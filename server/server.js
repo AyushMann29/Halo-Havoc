@@ -300,7 +300,7 @@ io.on("connection", (socket) => {
           b.lifespan = 30;
           b.id = socket.id;
           b.special = "slash";
-          b.damage = 10;
+          b.damage = 20;
           b.targetX = 0;
         }
       }
@@ -332,7 +332,7 @@ io.on("connection", (socket) => {
         b.lifespan = 60;
         b.id = socket.id;
         b.special = "laser";
-        b.damage = 100;
+        b.damage = 10;
         b.targetX = targetX;
       }
 
@@ -343,7 +343,7 @@ io.on("connection", (socket) => {
         targetX: targetX,
         playerId: socket.id,
         startTime: now,
-        duration: 1500
+        duration: 100
       });
     }
   });
