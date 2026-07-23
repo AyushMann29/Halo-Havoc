@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🌌 Halo Havoc
 
 [![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
@@ -104,3 +105,7 @@ To make testing and game recording easy, the following testing shortcuts are ava
 * **`F1` - God Mode:** Toggles invincibility (gold indicator in HUD).
 * **`F2` - Infinite Charges:** Sets shared charges to `999` (cyan indicator in HUD).
 * **`F3` - 100x Damage:** Multiplies player bullet damage by 100 (red indicator in HUD).
+=======
+You can play the game at https://halo-havoc.vercel.app/ 
+Don't want to disclose much about this project here I worked too hard on this. 🙏
+>>>>>>> 5da06ad2cf93495dc16ec99b6470d4a6d58c9b98
